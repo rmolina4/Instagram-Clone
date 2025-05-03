@@ -1,15 +1,15 @@
-import express, { Express } from "express";
+import express from "express";
 import cors from "cors";
 import { CronJob } from "cron";
 import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
-import { removeUnverified } from "./controllers/auth";
-import authRouter from "./routes/auth";
-import accountRouter from "./routes/account";
-import errorHandler from "./errorHandler";
-dotenv.config();
+import "dotenv/config.js";
+import { removeUnverified } from "./controllers/auth.js";
+import authRouter from "./routes/auth.js";
+import accountRouter from "./routes/account.js";
+import postRouter from "./routes/post.js";
+import errorHandler from "./utils/errorHandler.js";
 
-const app: Express = express();
+const app = express();
 
 // middleware
 app.use(
@@ -20,8 +20,9 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
-app.use(authRouter);
+app.use("/", authRouter);
 app.use("/user", accountRouter);
+app.use("/post", postRouter);
 app.use(errorHandler);
 
 // jobs

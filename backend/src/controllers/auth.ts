@@ -1,22 +1,18 @@
 import { Request, Response, NextFunction } from "express";
 import { hash, genSalt, compare } from "bcrypt";
-import { verify } from "jsonwebtoken";
-import dotenv from "dotenv";
-import db from "../db/db";
-import asyncWrapper from "../asyncWrapper";
-import appError from "../appError";
-import sendCookie from "../sendCookie";
-import { sendVerificationMail } from "../mailer";
-dotenv.config();
+import db from "../db/db.js";
+import asyncWrapper from "../utils/asyncWrapper.js";
+import appError from "../utils/appError.js";
+import { sendVerificationMail } from "../utils/mailer.js";
+import { randomBytes } from "crypto";
 
 export const register = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const { username, password, email } = req.body;
-
     const regex = /^[A-Z0-9._%+-]+@(?:[A-Z0-9-]+\.)+[A-Z]{2,}$/i;
     const match = email.match(regex);
     if (!match) {
-      throw new appError("Invalid Email Address", 401);
+      throw new appError("Invalid Email Address", 400);
     }
 
     const account = await db
@@ -27,11 +23,17 @@ export const register = asyncWrapper(
         email,
       })
       .returning(["id"])
-      .executeTakeFirst();
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto("profile")
+      .values({
+        account_id: account.id,
+      })
+      .execute();
 
-    await sendVerificationMail(username, email);
-    sendCookie({ id: account!.id, username, email }, res);
-    return res.json({
+    await sendVerificationMail({ id: account.id, username, email });
+    await createSession(account.id, res);
+    return res.status(201).json({
       success: true,
     });
   }
@@ -44,48 +46,36 @@ export const login = asyncWrapper(
     const account = await db
       .selectFrom("account")
       .select(["id", "username", "email", "password"])
-      .where((db) =>
-        db.or({
-          username: identifier,
-          email: identifier,
-        })
+      .where((eb) =>
+        eb.or([eb("username", "=", identifier), eb("email", "=", identifier)])
       )
       .executeTakeFirst();
-    if (!account) {
+    if (!account || !(await compare(password, account.password))) {
       throw new appError("Invalid credentials", 401);
     }
 
-    const match = await compare(password, account.password);
-    if (!match) {
-      throw new appError("Invalid credentials", 401);
-    }
-
-    sendCookie(
-      { id: account.id, username: account.username, email: account.email },
-      res
-    );
-    return res.json({
+    await createSession(account.id, res);
+    return res.status(200).json({
       success: true,
     });
   }
 );
 
-export const authenticateToken = asyncWrapper(
+export const logout = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { token } = req.cookies;
-    if (!token) {
-      throw new appError("Must be logged in to access.", 401);
-    }
-    const decoded = verify(token, process.env.JWT_SECRET!);
-    req.account = decoded as { id: string; username: string; email: string };
-    next();
+    const { sid } = req.cookies;
+    await db.deleteFrom("session").where("id", "=", sid).execute();
+    res.clearCookie("sid");
+    return res.status(200).json({
+      success: true,
+    });
   }
 );
 
-export const verifyEmail = asyncWrapper(
+export const triggerVerificationMail = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
-    await sendVerificationMail(req.account!.username, req.account!.email);
-    return res.json({
+    await sendVerificationMail(req.account!);
+    return res.status(200).json({
       success: true,
     });
   }
@@ -93,13 +83,10 @@ export const verifyEmail = asyncWrapper(
 
 export const deactivateAccount = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
-    const date = new Date();
-    await db
-      .updateTable("account")
-      .set({
-        deleted_at: date,
-      })
-      .where("id", "=", req.account!.id);
+    await db.deleteFrom("account").where("id", "=", req.account!.id).execute();
+    return res.status(204).json({
+      success: true,
+    });
   }
 );
 
@@ -107,13 +94,25 @@ export const removeUnverified = async () => {
   const date = new Date();
   const weekAgo = new Date(date);
   weekAgo.setDate(weekAgo.getDate() - 7);
-
   await db
-    .updateTable("account")
-    .set({
-      deleted_at: date,
-    })
+    .deleteFrom("account")
     .where("created_at", "<", weekAgo)
     .where("verified_at", "=", null)
     .execute();
+};
+
+export const createSession = async (account_id: string, res: Response) => {
+  const id = randomBytes(32).toString("hex");
+  const expires_at = new Date();
+  expires_at.setDate(expires_at.getDate() + 7);
+  await db
+    .insertInto("session")
+    .values({
+      id,
+      account_id,
+      expires_at,
+    })
+    .returning(["id"])
+    .execute();
+  res.cookie("sid", id);
 };

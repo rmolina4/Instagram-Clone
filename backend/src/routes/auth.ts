@@ -3,14 +3,19 @@ import {
   register,
   login,
   deactivateAccount,
-  verifyEmail,
-  authenticateToken,
-} from "../controllers/auth";
+  triggerVerificationMail,
+  logout,
+} from "../controllers/auth.js";
+import validateSession from "utils/validateSession.js";
 
 const router: Router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
-router.post("/deactivate", authenticateToken, deactivateAccount);
-router.post("/verify", authenticateToken, verifyEmail);
+router.post("/logout", logout);
+router.delete("/deactivate", validateSession, deactivateAccount);
+
+// incomplete, need frontend
+router.route("/forgot-password").post();
+router.post("/verify", validateSession, triggerVerificationMail);
 
 export default router;

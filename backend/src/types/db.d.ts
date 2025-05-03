@@ -15,7 +15,6 @@ export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export interface Account {
   created_at: Generated<Timestamp | null>;
-  deleted_at: Timestamp | null;
   email: string;
   id: Generated<Int8>;
   password: string;
@@ -23,6 +22,78 @@ export interface Account {
   verified_at: Timestamp | null;
 }
 
+export interface BookmarkedEntity {
+  account_id: Int8;
+  entity_id: Int8;
+  id: Generated<Int8>;
+}
+
+export interface Comment {
+  account_id: Int8;
+  body: string | null;
+  created_at: Generated<Timestamp | null>;
+  entity_id: Int8;
+  id: Generated<Int8>;
+  parent_id: Int8 | null;
+  post_id: Int8;
+}
+
+export interface Entity {
+  id: Generated<Int8>;
+}
+
+export interface Follow {
+  account_id: Int8;
+  followed_id: Int8;
+  id: Generated<Int8>;
+}
+
+export interface LikedEntity {
+  account_id: Int8;
+  entity_id: Int8;
+  id: Generated<Int8>;
+}
+
+export interface Message {
+  account_id: Int8;
+  body: string;
+  created_at: Generated<Timestamp | null>;
+  id: Generated<Int8>;
+  modified_at: Timestamp | null;
+  receiver_id: Int8;
+}
+
+export interface Post {
+  account_id: Int8;
+  caption: string | null;
+  created_at: Generated<Timestamp | null>;
+  entity_id: Int8;
+  id: Generated<Int8>;
+}
+
+export interface Profile {
+  account_id: Int8 | null;
+  bio: string | null;
+  id: Generated<Int8>;
+  name: string | null;
+}
+
+export interface Session {
+  account_id: Int8;
+  created_at: Generated<Timestamp | null>;
+  expires_at: Timestamp;
+  id: string;
+}
+
 export interface DB {
   account: Account;
+  bookmarked_entity: BookmarkedEntity;
+  comment: Comment;
+  entity: Entity;
+  follow: Follow;
+  liked_entity: LikedEntity;
+  message: Message;
+  post: Post;
+  profile: Profile;
+  session: Session;
 }
