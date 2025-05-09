@@ -1,3 +1,5 @@
+-- CREATE DATABASE instagram;
+
 CREATE Table account (
     id BIGSERIAL,
     username VARCHAR(30) NOT NULL UNIQUE,

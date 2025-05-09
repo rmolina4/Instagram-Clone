@@ -90,17 +90,6 @@ export const deactivateAccount = asyncWrapper(
   }
 );
 
-export const removeUnverified = async () => {
-  const date = new Date();
-  const weekAgo = new Date(date);
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  await db
-    .deleteFrom("account")
-    .where("created_at", "<", weekAgo)
-    .where("verified_at", "=", null)
-    .execute();
-};
-
 export const createSession = async (account_id: string, res: Response) => {
   const id = randomBytes(32).toString("hex");
   const expires_at = new Date();
