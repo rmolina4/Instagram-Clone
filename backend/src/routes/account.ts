@@ -8,6 +8,8 @@ import {
   getMessages,
   editMessage,
   deleteMessage,
+  isUsernameAvailable,
+  isEmailAvailable,
 } from "controllers/account";
 import express, { Router } from "express";
 import validateSession from "utils/validateSession";
@@ -27,5 +29,6 @@ router
   .route("/messages/:message_id")
   .put(validateSession, editMessage)
   .delete(validateSession, deleteMessage);
-
+router.post("/is-username-available", isUsernameAvailable);
+router.post("/is-email-available", isEmailAvailable);
 export default router;

@@ -8,7 +8,7 @@ import { randomBytes } from "crypto";
 
 export const register = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { username, password, email } = req.body;
+    const { username, password, email, fullName } = req.body;
     const regex = /^[A-Z0-9._%+-]+@(?:[A-Z0-9-]+\.)+[A-Z]{2,}$/i;
     const match = email.match(regex);
     if (!match) {
@@ -28,6 +28,7 @@ export const register = asyncWrapper(
       .insertInto("profile")
       .values({
         account_id: account.id,
+        name: fullName,
       })
       .execute();
 

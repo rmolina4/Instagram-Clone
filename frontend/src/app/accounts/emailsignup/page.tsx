@@ -1,17 +1,30 @@
+import Link from "next/link";
+import SignupForm from "../../../components/SignupForm";
+import localFont from "next/font/local";
+
+const myFont = localFont({
+  src: "../../../../public/fonts/blue_vinyl_regular_ps_ot.otf",
+  display: "swap",
+});
+
 export default function EmailSignup() {
-    return (
-        <div>
-            <h1>Instagram</h1>
-            <h2>Sign up to see photos and videos from your friends.</h2>
-            <form>
-                <input  type="text" placeholder="Mobile Number or Email"></input>
-                <input  type="text" placeholder="Password"></input>
-                <input  type="text" placeholder="Full Name"></input>
-                <input  type="text" placeholder="Username"></input>
-            </form>
-            <button onClick={() => {
-                
-            }}>Sign up</button>
-        </div>
-    );
+  return (
+    <div className="flex flex-col items-center min-h-screen justify-center">
+      <div className="flex flex-col items-center border-1 border-gray-300 w-[350px] mb-[10px] py-[10px]">
+        <h1 className={`${myFont.className} font-thin text-5xl mt-9 mb-3`}>
+          Instagram
+        </h1>
+        <h2 className="text-center text-gray-500 font-semibold mx-10 mb-[10px]">
+          Sign up to see photos and videos from your friends.
+        </h2>
+        <SignupForm />
+      </div>
+      <div className="flex flex-col items-center border-1 border-gray-300 w-[350px] py-[25px] leading-none">
+        <p>Have an account?</p>
+        <Link href="/accounts/login" className="text-blue-500">
+          Log in
+        </Link>
+      </div>
+    </div>
+  );
 }

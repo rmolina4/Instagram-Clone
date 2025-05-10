@@ -243,3 +243,43 @@ export const getMessages = asyncWrapper(
     });
   }
 );
+
+export const isUsernameAvailable = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { username } = req.body;
+
+    const account = await db
+      .selectFrom("account")
+      .select("id")
+      .where("username", "=", username)
+      .executeTakeFirst();
+
+    if(account) {
+      throw new appError("Username already taken", 400);
+    }
+
+    return res.status(200).json({
+      success: true,
+    });
+  }
+);
+
+export const isEmailAvailable = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { email } = req.body;
+
+    const account = await db
+      .selectFrom("account")
+      .select("id")
+      .where("email", "=", email)
+      .executeTakeFirst();
+
+    if(account) {
+      throw new appError("Email already taken", 400);
+    }
+
+    return res.status(200).json({
+      success: true,
+    });
+  }
+);
