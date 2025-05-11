@@ -5,32 +5,23 @@ import Divider from "./Divider";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "./Input";
-import {
-  validateEmail,
-  validatePassword,
-  validateUsername,
-} from "../utils/validation";
 import { Loader } from "./Loader";
 import Button from "./Button";
 
 interface FormData {
-  email: string;
+  identifier: string;
   password: string;
-  fullName: string;
-  username: string;
 }
 
 const initialFormData: FormData = {
-  email: "",
+  identifier: "",
   password: "",
-  fullName: "",
-  username: "",
 };
 
 const inputStyles =
   "w-full bg-gray-100 rounded-sm border-1 border-gray-200 p-[7px] placeholder:text-sm";
 
-export default function SignupForm() {
+export default function LoginForm() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -43,7 +34,7 @@ export default function SignupForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    fetch(`http://localhost:8080/register`, {
+    fetch(`http://localhost:8080/login`, {
       method: "POST",
       body: JSON.stringify(formData),
       headers: {
@@ -63,79 +54,50 @@ export default function SignupForm() {
   };
 
   return (
-    <div className="flex flex-col w-full">
-      <div className="mx-10 mt-2 mb-2">
-        <Button
-          className="bg-blue-500 text-white hover:cursor-pointer hover:bg-blue-600 p-1"
-          onClick={() => {}}
-        >
-          <FaGoogle />
-          Log in with Google
-        </Button>
-      </div>
-      <Divider className="mt-[10px] mb-[18px] mx-10"/>
+    <div className="flex flex-col w-full mt-6">
       <form className="flex flex-col gap-2 px-10" onSubmit={handleSubmit}>
         <Input
           placeholder="Mobile Number or Email"
           className={inputStyles}
-          value={formData.email}
-          setValue={handleInputChange("email")}
-          validate={() => validateEmail(formData.email)}
-          showError={true}
+          value={formData.identifier}
+          setValue={handleInputChange("identifier")}
         />
         <Input
           placeholder="Password"
           className={inputStyles}
           value={formData.password}
           setValue={handleInputChange("password")}
-          validate={() => validatePassword(formData.password)}
           isPrivate={true}
-          showError={true}
         />
-        <Input
-          placeholder="Full Name"
-          className={inputStyles}
-          value={formData.fullName}
-          setValue={handleInputChange("fullName")}
-          showError={true}
-        />
-        <Input
-          placeholder="Username"
-          className={inputStyles}
-          value={formData.username}
-          setValue={handleInputChange("username")}
-          validate={() => validateUsername(formData.username)}
-          showError={true}
-        />
-        <p className="text-center text-xs text-gray-600 mt-[10px] mb-[6px]">
-          By signing up, you agree to our Terms, Privacy Policy and Cookies
-          Policy.
-        </p>
         {isLoading ? (
           <Loader />
         ) : (
           <Button
             type="submit"
             disabled={
-              formData.email === "" ||
-              formData.username === "" ||
-              formData.password.length < 6
+              formData.identifier === "" || formData.password.length < 6
             }
             className={`bg-blue-500 text-white mt-2 mb-2 p-1 ${
-              formData.email === "" ||
-              formData.username === "" ||
-              formData.password.length < 6
+              formData.identifier === "" || formData.password.length < 6
                 ? "opacity-50"
                 : "hover:cursor-pointer hover:bg-blue-600"
             }`}
           >
-            Sign up
+            Log in
           </Button>
         )}
         {error && (
           <p className="text-red-500 text-center text-xs mt-2 mb-2">{error}</p>
         )}
       </form>
+      <Divider className="mt-[14px] mb-[22px] mx-10"/>
+      <Button
+        className="text-blue-500 hover:cursor-pointer mt-2 mb-2`"
+        onClick={() => {}}
+      >
+        <FaGoogle />
+        Log in with Google
+      </Button>
     </div>
   );
 }

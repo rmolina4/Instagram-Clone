@@ -30,7 +30,7 @@ export const validatePassword = async (password: string): Promise<string | null>
 
 export const validateUsername = async (username: string): Promise<string | null> => {
     try {
-        const res = await fetch("http://localhost:8080/user/is-available", {
+        const res = await fetch("http://localhost:8080/user/is-username-available", {
             method: "POST",
             body: JSON.stringify({ username }),
             headers: {

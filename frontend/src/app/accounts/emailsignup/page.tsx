@@ -20,8 +20,8 @@ export default function EmailSignup() {
         <SignupForm />
       </div>
       <div className="flex flex-col items-center border-1 border-gray-300 w-[350px] py-[25px] leading-none">
-        <p>Have an account?</p>
-        <Link href="/accounts/login" className="text-blue-500">
+        <p className="text-sm">Have an account?</p>
+        <Link href="/accounts/login" className="text-blue-500 text-sm">
           Log in
         </Link>
       </div>

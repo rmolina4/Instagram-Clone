@@ -5,25 +5,30 @@ import { VscError } from "react-icons/vsc";
 import { FaRegCircleCheck } from "react-icons/fa6";
 
 interface InputProps {
-  type: string;
-  placeholder: string;
+  placeholder?: string;
   value: string;
   setValue: (value: string) => void;
-  className: string;
+  className?: string;
   validate?: () => Promise<string | null>;
+  isPrivate?: boolean;
+  showError?: boolean;
 }
 
 export default function Input({
-  type,
   placeholder,
   value: externalValue,
   setValue: setExternalValue,
   className,
   validate,
+  showError,
+  isPrivate,
 }: InputProps) {
   const [error, setError] = useState<string | null>(null);
-  const [isTouched, setIsTouched] = useState(false);
-  const [isBlurred, setIsBlurred] = useState(false);
+  const [isTouched, setIsTouched] = useState<boolean>(false);
+  const [isBlurred, setIsBlurred] = useState<boolean>(false);
+  const [showValue, setShowValue] = useState<boolean>(
+    isPrivate == undefined ? true : !isPrivate
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setExternalValue(e.target.value);
@@ -32,7 +37,6 @@ export default function Input({
     }
     setIsBlurred(false);
   };
-
   const handleBlur = async () => {
     if (!isTouched) return;
     if (!validate) return setIsBlurred(true);
@@ -43,24 +47,50 @@ export default function Input({
 
   return (
     <div className="w-full">
-      <div
-        className={`flex justify-between items-center gap-2 ${className}`}
-      >
+      <div className={`relative flex justify-between items-center gap-2 ${className}`}>
         <input
-          type={type}
-          placeholder={placeholder}
+          type={showValue ? "text" : "password"}
           value={externalValue}
+          placeholder={placeholder}
           onChange={handleChange}
           onBlur={handleBlur}
-          className="w-full focus:outline-none"
+          className={` left-2 w-full focus:outline-none placeholder:text-sm ${externalValue ? "top-0" : ""}`}
         />
-        {error && isBlurred && <VscError className="text-red-500" />}
-        {!error && isBlurred && (
+        {error && isBlurred && showError && (
+          <VscError className="text-red-500" />
+        )}
+        {showError && !error && isBlurred && (
           <FaRegCircleCheck className="text-gray-500" />
         )}
+        {isPrivate && !showValue && externalValue && (
+          <button
+            className="hover:cursor-pointer"
+            key="show"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowValue(true);
+            }}
+          >
+            Show
+          </button>
+        )}
+        {isPrivate && showValue && externalValue && (
+          <button
+            className="hover:cursor-pointer"
+            key="hide"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowValue(false);
+            }}
+          >
+            Hide
+          </button>
+        )}
       </div>
-      {error && isBlurred && (
-        <p className="text-red-500 text-center text-xs mx-10 my-2">{error}</p>
+      {error && isBlurred && showError && (
+        <p className="text-red-500 text-center text-xs mx-10 mt-2 mb-2">
+          {error}
+        </p>
       )}
     </div>
   );
