@@ -10,6 +10,8 @@ export default function errorHandler(
   err.statusCode = err.statusCode || 500;
   err.message = err.message || "Internal Server Error";
 
+  console.log(err);
+
   const constraintMessages: { [key: string]: string } = {
     account_username_key: "Username is already taken.",
     account_email_key: "Email is already taken.",

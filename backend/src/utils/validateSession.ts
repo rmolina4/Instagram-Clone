@@ -9,7 +9,6 @@ const validateSession = asyncWrapper(
     if (!sid) {
       throw new appError("Must be logged in to access.", 401);
     }
-
     const session = await db
       .selectFrom("session")
       .innerJoin("account", "account.id", "session.account_id")

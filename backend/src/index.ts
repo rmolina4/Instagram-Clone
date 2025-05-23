@@ -8,11 +8,9 @@ import postRouter from "./routes/post.js";
 import errorHandler from "./utils/errorHandler.js";
 
 const app = express();
-
-// middleware
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+    origin: process.env.CORS_ORIGIN?.split(","),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],

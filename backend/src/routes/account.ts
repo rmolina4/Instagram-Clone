@@ -4,7 +4,6 @@ import {
   getBookmakedPosts,
   getLikedPosts,
   getProfile,
-  me,
   getMessages,
   editMessage,
   deleteMessage,
@@ -22,7 +21,6 @@ router
 router.get("/:account_id/posts", validateSession, getAccountPosts);
 router.get("/:account_id/bookmarked", validateSession, getBookmakedPosts);
 router.get("/:account_id/liked", validateSession, getLikedPosts);
-router.get("/me", validateSession, me);
 router.post("/:account_id/follow");
 router.route("/:account_id/messages").get(validateSession, getMessages);
 router

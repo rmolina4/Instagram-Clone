@@ -1,32 +1,53 @@
 import { Request, Response, NextFunction } from "express";
 import asyncWrapper from "../utils/asyncWrapper.js";
-import db from "../db/db.js";
+import db, { supabase } from "../db/db.js";
 import appError from "../utils/appError.js";
 
 export const getPost = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const { post_id } = req.params;
 
-    const post = await db
+    let post = await db
       .selectFrom("post")
       .innerJoin("account", "post.account_id", "account.id")
       .innerJoin("comment", "post.id", "comment.post_id")
       .leftJoin("liked_entity", (join) =>
-        join
-          .onRef("liked_entity.entity_id", "=", "post.entity_id")
-          .on("liked_entity.account_id", "=", req.account!.id)
+        join.onRef("liked_entity.entity_id", "=", "post.entity_id")
       )
-      .leftJoin("bookmarked_entity", (join) =>
-        join
-          .onRef("bookmarked_entity.entity_id", "=", "post.entity_id")
-          .on("bookmarked_entity.account_id", "=", req.account!.id)
-      )
-      .select([
+      .leftJoin("post_media", "post.id", "post_media.post_id")
+      .select((eb) => [
+        "account.username",
+        "post.caption",
+        "post.created_at",
+        eb.fn.count("liked_entity.id").as("like_count"),
+        eb
+          .exists(
+            db
+              .selectFrom("liked_entity")
+              .where("liked_entity.account_id", "=", req.account!.id)
+              .where("liked_entity.entity_id", "=", eb.ref("post.entity_id"))
+          )
+          .as("liked_by_me"),
+        eb
+          .exists(
+            db
+              .selectFrom("bookmarked_entity")
+              .where("bookmarked_entity.account_id", "=", req.account!.id)
+              .where("bookmarked_entity.entity_id", "=", eb.ref("post.entity_id"))
+          )
+          .as("bookmarked_by_me"),
+        db.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      ])
+      .groupBy([
+        "post.id",
+        "post.entity_id",
         "account.username",
         "post.id",
         "post.caption",
         "post.created_at",
         "post.entity_id",
+        "liked_by_me",
+        "bookmarked_by_me",
       ])
       .where("post.id", "=", post_id)
       .executeTakeFirstOrThrow();
@@ -42,25 +63,48 @@ export const getNextPosts = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const cursor = req.query.cursor as string | undefined;
 
-    const posts = await db
+    let posts = await db
       .selectFrom("post")
       .innerJoin("account", "post.account_id", "account.id")
       .leftJoin("liked_entity", (join) =>
-        join
-          .onRef("liked_entity.entity_id", "=", "post.entity_id")
-          .on("liked_entity.account_id", "=", req.account!.id)
+        join.onRef("liked_entity.entity_id", "=", "post.entity_id")
       )
-      .leftJoin("bookmarked_entity", (join) =>
-        join
-          .onRef("bookmarked_entity.entity_id", "=", "post.entity_id")
-          .on("bookmarked_entity.account_id", "=", req.account!.id)
-      )
-      .select([
+      .leftJoin("post_media", "post.id", "post_media.post_id")
+      .select((eb) => [
         "account.username",
         "post.id",
         "post.caption",
         "post.created_at",
         "post.entity_id",
+        eb.fn.count("liked_entity.id").as("like_count"),
+        eb
+          .exists(
+            db
+              .selectFrom("liked_entity")
+              .where("liked_entity.account_id", "=", req.account!.id)
+              .where("liked_entity.entity_id", "=", eb.ref("post.entity_id"))
+          )
+          .as("liked_by_me"),
+        eb
+          .exists(
+            db
+              .selectFrom("bookmarked_entity")
+              .where("bookmarked_entity.account_id", "=", req.account!.id)
+              .where("bookmarked_entity.entity_id", "=", eb.ref("post.entity_id"))
+          )
+          .as("bookmarked_by_me"),
+        db.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      ])
+      .groupBy([
+        "post.id",
+        "post.entity_id",
+        "account.username",
+        "post.id",
+        "post.caption",
+        "post.created_at",
+        "post.entity_id",
+        "liked_by_me",
+        "bookmarked_by_me",
       ])
       .where(
         "post.created_at",
@@ -68,7 +112,7 @@ export const getNextPosts = asyncWrapper(
         cursor == undefined ? new Date() : new Date(cursor)
       )
       .limit(10)
-      .orderBy("post.created_at desc")
+      .orderBy("post.created_at", "desc")
       .execute();
 
     return res.status(200).json({
@@ -81,9 +125,11 @@ export const getNextPosts = asyncWrapper(
 export const createPost = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const { caption } = req.body;
+    const media = req.files as Express.Multer.File[];
 
     const entity = await db
       .insertInto("entity")
+      .defaultValues()
       .returning(["id"])
       .executeTakeFirstOrThrow();
     const post = await db
@@ -95,6 +141,27 @@ export const createPost = asyncWrapper(
       })
       .returning(["id"])
       .executeTakeFirstOrThrow();
+
+    for (const [index, file] of media.entries()) {
+      const { error } = await supabase.storage
+        .from(process.env.SUPABASE_BUCKET_NAME!)
+        .upload(`posts/${post.id}/${index}`, file.buffer, {
+          contentType: file.mimetype,
+        });
+      if (error) {
+        throw new appError("Failed to upload media", 500);
+      }
+    }
+
+    await db
+      .insertInto("post_media")
+      .values(
+        media.map((_, index) => ({
+          post_id: post.id,
+          media_url: `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET_NAME}/posts/${post.id}/${index}`,
+        }))
+      )
+      .execute();
 
     return res.status(201).json({
       success: true,

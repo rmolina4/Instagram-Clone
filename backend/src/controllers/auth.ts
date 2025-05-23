@@ -104,5 +104,31 @@ export const createSession = async (account_id: string, res: Response) => {
     })
     .returning(["id"])
     .execute();
-  res.cookie("sid", id);
+  res.cookie("sid", id, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/"
+  });
 };
+
+export const me = asyncWrapper(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const account = await db
+      .selectFrom("account")
+      .leftJoin("profile", "profile.account_id", "account.id")
+      .select([
+        "account.username",
+        "account.email",
+        "profile.name",
+      ])
+      .where("account.id", "=", req.account!.id)
+      .executeTakeFirstOrThrow();
+
+    return res.status(200).json({
+      success: true,
+      account,
+    });
+  }
+);

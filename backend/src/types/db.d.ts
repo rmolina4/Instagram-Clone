@@ -71,6 +71,12 @@ export interface Post {
   id: Generated<Int8>;
 }
 
+export interface PostMedia {
+  id: Generated<Int8>;
+  media_url: string;
+  post_id: Int8;
+}
+
 export interface Profile {
   account_id: Int8 | null;
   bio: string | null;
@@ -94,6 +100,7 @@ export interface DB {
   liked_entity: LikedEntity;
   message: Message;
   post: Post;
+  post_media: PostMedia;
   profile: Profile;
   session: Session;
 }

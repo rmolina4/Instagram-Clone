@@ -1,6 +1,5 @@
 "use client";
 
-import { FaGoogle } from "react-icons/fa";
 import Divider from "./Divider";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -11,101 +10,105 @@ import {
   validateUsername,
 } from "../utils/validation";
 import { Loader } from "./Loader";
-import Button from "./Button";
+import { FaGoogle } from "react-icons/fa";
 
-interface FormData {
+interface RegisterFormData {
   email: string;
   password: string;
   fullName: string;
   username: string;
 }
 
-const initialFormData: FormData = {
-  email: "",
-  password: "",
-  fullName: "",
-  username: "",
-};
-
-const inputStyles =
-  "w-full bg-gray-100 rounded-sm border-1 border-gray-200 p-[7px] placeholder:text-sm";
-
 export default function SignupForm() {
-  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [formData, setFormData] = useState<RegisterFormData>({
+    email: "",
+    password: "",
+    fullName: "",
+    username: "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const router = useRouter();
 
-  const handleInputChange = (field: keyof FormData) => (value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
+  const handleInputChange =
+    (field: keyof RegisterFormData) => (value: string) => {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     setIsLoading(true);
-    fetch(`http://localhost:8080/register`, {
-      method: "POST",
-      body: JSON.stringify(formData),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-      .then((res) => {
-        if (!res.ok) {
-          setError(res.statusText);
-        }
-        router.push("/");
-      })
-      .catch(() => {
-        setError("An unexpected error occurred. Please try again.");
-        setIsLoading(false);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/register`, {
+        method: "POST",
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password"),
+          fullName: formData.get("fullName"),
+          username: formData.get("username"),
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
       });
+      const data = await res.json();
+      if (data.success) {
+        return router.push("/");
+      }
+      setError(data.message);
+    } catch {
+      router.push("/500");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="flex flex-col w-full">
       <div className="mx-10 mt-2 mb-2">
-        <Button
-          className="bg-blue-500 text-white hover:cursor-pointer hover:bg-blue-600 p-1"
+        <button
+          className="w-full flex gap-2 bg-blue-500 text-white hover:cursor-pointer hover:bg-blue-600 p-1 items-center justify-center rounded-lg"
           onClick={() => {}}
         >
           <FaGoogle />
           Log in with Google
-        </Button>
+        </button>
       </div>
-      <Divider className="mt-[10px] mb-[18px] mx-10"/>
-      <form className="flex flex-col gap-2 px-10" onSubmit={handleSubmit}>
+      <Divider className="mt-[10px] mb-[18px] mx-10" />
+      <form className="flex flex-col gap-2 px-10" onSubmit={onSubmit}>
         <Input
           placeholder="Mobile Number or Email"
-          className={inputStyles}
           value={formData.email}
           setValue={handleInputChange("email")}
           validate={() => validateEmail(formData.email)}
           showError={true}
+          name="email"
         />
         <Input
           placeholder="Password"
-          className={inputStyles}
           value={formData.password}
           setValue={handleInputChange("password")}
           validate={() => validatePassword(formData.password)}
           isPrivate={true}
           showError={true}
+          name="password"
         />
         <Input
           placeholder="Full Name"
-          className={inputStyles}
           value={formData.fullName}
           setValue={handleInputChange("fullName")}
           showError={true}
+          name="fullName"
         />
         <Input
           placeholder="Username"
-          className={inputStyles}
           value={formData.username}
           setValue={handleInputChange("username")}
           validate={() => validateUsername(formData.username)}
           showError={true}
+          name="username"
         />
         <p className="text-center text-xs text-gray-600 mt-[10px] mb-[6px]">
           By signing up, you agree to our Terms, Privacy Policy and Cookies
@@ -114,14 +117,14 @@ export default function SignupForm() {
         {isLoading ? (
           <Loader />
         ) : (
-          <Button
+          <button
             type="submit"
             disabled={
               formData.email === "" ||
               formData.username === "" ||
               formData.password.length < 6
             }
-            className={`bg-blue-500 text-white mt-2 mb-2 p-1 ${
+            className={`w-full flex gap-2 bg-blue-500 text-white mt-2 mb-2 p-1 items-center justify-center rounded-lg ${
               formData.email === "" ||
               formData.username === "" ||
               formData.password.length < 6
@@ -130,7 +133,7 @@ export default function SignupForm() {
             }`}
           >
             Sign up
-          </Button>
+          </button>
         )}
         {error && (
           <p className="text-red-500 text-center text-xs mt-2 mb-2">{error}</p>

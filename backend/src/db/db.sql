@@ -57,6 +57,14 @@ CREATE TABLE post (
     FOREIGN KEY(entity_id) REFERENCES entity(id) ON DELETE CASCADE
 );
 
+CREATE TABLE post_media (
+    id BIGSERIAL,
+    post_id BIGINT NOT NULL,
+    media_url VARCHAR(255) NOT NULL,
+    PRIMARY KEY(id),
+    FOREIGN KEY(post_id) REFERENCES post(id) ON DELETE CASCADE
+);
+
 CREATE TABLE comment (
     id BIGSERIAL,
     account_id BIGINT NOT NULL,

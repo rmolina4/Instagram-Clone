@@ -12,9 +12,12 @@ import {
   bookmarkEntity,
 } from "controllers/post";
 import validateSession from "utils/validateSession.js";
+import multer from "multer";
 
 const router: Router = express.Router();
-router.post("/", validateSession, createPost);
+const upload = multer({ storage: multer.memoryStorage() });
+
+router.post("/", validateSession, upload.array("media"), createPost);
 router.get("/next", validateSession, getNextPosts);
 router
   .route("/:post_id")

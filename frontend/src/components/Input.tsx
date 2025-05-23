@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { VscError } from "react-icons/vsc";
 import { FaRegCircleCheck } from "react-icons/fa6";
 
@@ -8,20 +10,24 @@ interface InputProps {
   placeholder?: string;
   value: string;
   setValue: (value: string) => void;
-  className?: string;
-  validate?: () => Promise<string | null>;
+  validate?: () => Promise<{
+    success: boolean;
+    message: string;
+    status?: number;
+  }>;
   isPrivate?: boolean;
   showError?: boolean;
+  name: string;
 }
 
 export default function Input({
   placeholder,
   value: externalValue,
   setValue: setExternalValue,
-  className,
   validate,
   showError,
   isPrivate,
+  name,
 }: InputProps) {
   const [error, setError] = useState<string | null>(null);
   const [isTouched, setIsTouched] = useState<boolean>(false);
@@ -29,32 +35,42 @@ export default function Input({
   const [showValue, setShowValue] = useState<boolean>(
     isPrivate == undefined ? true : !isPrivate
   );
+  const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setExternalValue(e.target.value);
-    if (!isTouched) {
-      setIsTouched(true);
-    }
+    setIsTouched(true);
     setIsBlurred(false);
   };
+
   const handleBlur = async () => {
     if (!isTouched) return;
     if (!validate) return setIsBlurred(true);
-    const errorMessage = await validate();
-    setError(errorMessage);
+    const result = await validate();
+    if (!result.success) {
+      if (result.status === 500) {
+        return router.push("/500");
+      }
+      setError(result.message);
+    }
     setIsBlurred(true);
   };
 
   return (
     <div className="w-full">
-      <div className={`relative flex justify-between items-center gap-2 ${className}`}>
+      <div
+        className={`flex bg-gray-100 rounded-sm border-1 justify-between items-center gap-2 p-[7px] ${
+          error ? "border-red-500" : "border-gray-200"
+        }`}
+      >
         <input
           type={showValue ? "text" : "password"}
           value={externalValue}
           placeholder={placeholder}
           onChange={handleChange}
           onBlur={handleBlur}
-          className={` left-2 w-full focus:outline-none placeholder:text-sm ${externalValue ? "top-0" : ""}`}
+          className={`w-full outline-none placeholder:text-sm`}
+          name={name}
         />
         {error && isBlurred && showError && (
           <VscError className="text-red-500" />

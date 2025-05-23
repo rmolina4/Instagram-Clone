@@ -99,27 +99,6 @@ export const getBookmakedPosts = asyncWrapper(
   }
 );
 
-export const me = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const account = await db
-      .selectFrom("account")
-      .leftJoin("profile", "profile.account_id", "account.id")
-      .select([
-        "account.username",
-        "account.email",
-        "account.created_at",
-        "profile.name",
-      ])
-      .where("account.id", "=", req.account!.id)
-      .executeTakeFirstOrThrow();
-
-    return res.status(200).json({
-      success: true,
-      account,
-    });
-  }
-);
-
 export const followAccount = asyncWrapper(
   async (req: Request, res: Response, next: NextFunction) => {
     const { account_id } = req.params;

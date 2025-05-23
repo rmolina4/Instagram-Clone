@@ -1,4 +1,4 @@
-export default function Divider({className}: {className?: string}) {
+export default function Divider({ className }: { className?: string }) {
   return (
     <div className={`flex items-center justify-center ${className}`}>
       <div className="w-[50%] h-[1px] bg-gray-300"></div>

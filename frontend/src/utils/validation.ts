@@ -1,48 +1,62 @@
-export const validateEmail = async (email: string): Promise<string | null> => {
+"use server";
+
+export const validateEmail = async (
+  email: string
+): Promise<{ success: boolean; message: string; status?: number }> => {
   const regex = /^[A-Z0-9._%+-]+@(?:[A-Z0-9-]+\.)+[A-Z]{2,}$/i;
-  if(!regex.test(email)) {
-    return "Enter a valid email address";
+  if (!regex.test(email)) {
+    return { success: false, message: "Enter a valid email address" };
   }
   try {
-    const res = await fetch("http://localhost:8080/user/is-email-available", {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/is-email-available`, {
       method: "POST",
       body: JSON.stringify({ email }),
       headers: {
         "Content-Type": "application/json",
       },
     });
-    const data = await res.json();
-    if (!res.ok) {
-      return data.message;
-    }
-    return null;
+    return await res.json();
   } catch (error) {
-    return "An unexpected error occurred. Please try again.";
+    return {
+      success: false,
+      status: 500,
+      message: "Internal Server Error.",
+    };
   }
 };
 
-export const validatePassword = async (password: string): Promise<string | null> => {
-  if(password.length < 6) {
-    return "Password must be at least 6 characters long";
+export const validatePassword = async (
+  password: string
+): Promise<{ success: boolean; message: string }> => {
+  if (password.length < 6) {
+    return {
+      success: false,
+      message: "Password must be at least 6 characters long",
+    };
   }
-  return null;
+  return { success: true,  message: "" };
 };
 
-export const validateUsername = async (username: string): Promise<string | null> => {
-    try {
-        const res = await fetch("http://localhost:8080/user/is-username-available", {
-            method: "POST",
-            body: JSON.stringify({ username }),
-            headers: {
+export const validateUsername = async (
+  username: string
+): Promise<{ success: boolean; message: string; status?: number }> => {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/user/is-username-available`,
+      {
+        method: "POST",
+        body: JSON.stringify({ username }),
+        headers: {
           "Content-Type": "application/json",
         },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return data.message;
-    }
-    return null;
-    } catch (error) {
-        return "An unexpected error occurred. Please try again.";
-    }
-}; 
+      }
+    );
+    return await res.json();
+  } catch (error) {
+    return {
+      success: false,
+      status: 500,
+      message: "Internal server error.",
+    };
+  }
+};

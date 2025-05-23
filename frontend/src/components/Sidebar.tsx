@@ -1,0 +1,74 @@
+"use client";
+
+import Image from "next/image";
+import { useContext } from "react";
+import { AuthContext } from "@/utils/authContext";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+export const Sidebar = ({ className }: { className?: string }) => {
+  const router = useRouter();
+
+  const { user, loading } = useContext(AuthContext);
+  if (!loading && !user) {
+    router.push("/accounts/login");
+  }
+
+  return (
+    <div className={`flex flex-col mt-9 pl-16 ${className}`}>
+      <div className="flex items-center gap-2 w-[320px] px-4">
+        <Link href={`/${user?.username}`}>
+          <Image
+            src="https://i.pinimg.com/474x/25/1c/e1/251ce139d8c07cbcc9daeca832851719.jpg"
+            alt="pfp"
+            width={45}
+            height={45}
+            unoptimized
+          />
+        </Link>
+        <div className="flex flex-col">
+          <Link
+            href={`/${user?.username}`}
+            className="text-sm font-bold leading-none"
+          >
+            {user?.username}
+          </Link>
+          <p className="text-xs text-gray-500 leading-none">{user?.fullName}</p>
+        </div>
+        <button className="ml-auto text-xs text-blue-500 hover:cursor-pointer">
+          Switch
+        </button>
+      </div>
+      <div className="flex my-5 px-4">
+        <span className="text-gray-500 text-sm font-bold">
+          Suggested for you
+        </span>
+        <button className="ml-auto text-xs font-bold hover:cursor-pointer">
+          See all
+        </button>
+      </div>
+      <div className="flex items-center gap-2 px-4">
+        <Link href={`/`}>
+          <Image
+            src="https://i.pinimg.com/474x/25/1c/e1/251ce139d8c07cbcc9daeca832851719.jpg"
+            alt="pfp"
+            width={45}
+            height={45}
+            unoptimized
+          />
+        </Link>
+        <div className="flex flex-col">
+          <Link href={`/`} className="text-sm font-bold leading-none">
+            John Doe
+          </Link>
+          <p className="text-xs text-gray-500 leading-none">
+            Suggested for you
+          </p>
+        </div>
+        <button className="text-xs ml-auto text-blue-500 hover:cursor-pointer">
+          Follow
+        </button>
+      </div>
+    </div>
+  );
+};
