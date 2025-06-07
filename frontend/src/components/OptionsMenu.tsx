@@ -1,26 +1,28 @@
 import { useRouter } from "next/navigation";
-import { CiBookmark } from "react-icons/ci";
+import { routerFetch } from "@/utils/safeFetch";
+import { IoBookmarkOutline } from "react-icons/io5";
+import { APIResponse } from "@/utils/types";
 
 export default function OptionsMenu() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout`, {
-        method: "POST", 
-        credentials: "include",
-      });
-    } catch {
-      router.push("/500");
-    }
     router.push("/accounts/login");
-  }
+    await routerFetch<APIResponse>(
+      `${process.env.NEXT_PUBLIC_API_URL}/logout`,
+      {
+        method: "POST",
+        credentials: "include",
+      },
+      router,
+    );
+  };
 
   return (
     <div className="absolute bottom-full mb-2 w-[270px] flex flex-col text-sm shadow-[0px_0px_10px_0px_rgba(0,0,0,0.2)] bg-white rounded-xl">
       <div className="p-1">
         <button className="w-full flex items-center gap-2 p-3 hover:bg-gray-100 rounded-lg">
-          <CiBookmark size={20} />
+          <IoBookmarkOutline size={20} />
           Saved
         </button>
       </div>

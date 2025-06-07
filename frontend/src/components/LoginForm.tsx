@@ -6,6 +6,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "./Input";
 import { Loader } from "./Loader";
+import safeFetch from "@/utils/safeFetch";
+import { APIResponse } from "@/utils/types";
 
 interface LoginFormData {
   identifier: string;
@@ -27,30 +29,26 @@ export default function LoginForm() {
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
     setIsLoading(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
+    const data = await safeFetch<APIResponse>(
+      `${process.env.NEXT_PUBLIC_API_URL}/login`,
+      {
         method: "POST",
         body: JSON.stringify({
-          identifier: formData.get("identifier"),
-          password: formData.get("password"),
+          identifier: formData.identifier,
+          password: formData.password,
         }),
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-      });
-      const data = await res.json();
-      if (data.success) {
-        return router.push("/");
-      }
-      setError(data.message);
-    } catch {
-      router.push("/500");
-    } finally {
-      setIsLoading(false);
+      },
+    );
+    if (data!.success) {
+      return router.push("/");
     }
+    setError(data!.message!);
+    setIsLoading(false);
   };
 
   return (

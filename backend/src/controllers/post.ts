@@ -1,57 +1,13 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import asyncWrapper from "../utils/asyncWrapper.js";
-import db, { supabase } from "../db/db.js";
 import appError from "../utils/appError.js";
+import * as postRepository from "../repositories/post.js";
+import * as uploadMedia from "../utils/uploadMedia.js";
 
 export const getPost = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { post_id } = req.params;
-
-    let post = await db
-      .selectFrom("post")
-      .innerJoin("account", "post.account_id", "account.id")
-      .innerJoin("comment", "post.id", "comment.post_id")
-      .leftJoin("liked_entity", (join) =>
-        join.onRef("liked_entity.entity_id", "=", "post.entity_id")
-      )
-      .leftJoin("post_media", "post.id", "post_media.post_id")
-      .select((eb) => [
-        "account.username",
-        "post.caption",
-        "post.created_at",
-        eb.fn.count("liked_entity.id").as("like_count"),
-        eb
-          .exists(
-            db
-              .selectFrom("liked_entity")
-              .where("liked_entity.account_id", "=", req.account!.id)
-              .where("liked_entity.entity_id", "=", eb.ref("post.entity_id"))
-          )
-          .as("liked_by_me"),
-        eb
-          .exists(
-            db
-              .selectFrom("bookmarked_entity")
-              .where("bookmarked_entity.account_id", "=", req.account!.id)
-              .where("bookmarked_entity.entity_id", "=", eb.ref("post.entity_id"))
-          )
-          .as("bookmarked_by_me"),
-        db.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
-      ])
-      .groupBy([
-        "post.id",
-        "post.entity_id",
-        "account.username",
-        "post.id",
-        "post.caption",
-        "post.created_at",
-        "post.entity_id",
-        "liked_by_me",
-        "bookmarked_by_me",
-      ])
-      .where("post.id", "=", post_id)
-      .executeTakeFirstOrThrow();
-
+    const post = await postRepository.getPost(req.account!.id, post_id);
     return res.status(200).json({
       success: true,
       post,
@@ -60,61 +16,9 @@ export const getPost = asyncWrapper(
 );
 
 export const getNextPosts = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const cursor = req.query.cursor as string | undefined;
-
-    let posts = await db
-      .selectFrom("post")
-      .innerJoin("account", "post.account_id", "account.id")
-      .leftJoin("liked_entity", (join) =>
-        join.onRef("liked_entity.entity_id", "=", "post.entity_id")
-      )
-      .leftJoin("post_media", "post.id", "post_media.post_id")
-      .select((eb) => [
-        "account.username",
-        "post.id",
-        "post.caption",
-        "post.created_at",
-        "post.entity_id",
-        eb.fn.count("liked_entity.id").as("like_count"),
-        eb
-          .exists(
-            db
-              .selectFrom("liked_entity")
-              .where("liked_entity.account_id", "=", req.account!.id)
-              .where("liked_entity.entity_id", "=", eb.ref("post.entity_id"))
-          )
-          .as("liked_by_me"),
-        eb
-          .exists(
-            db
-              .selectFrom("bookmarked_entity")
-              .where("bookmarked_entity.account_id", "=", req.account!.id)
-              .where("bookmarked_entity.entity_id", "=", eb.ref("post.entity_id"))
-          )
-          .as("bookmarked_by_me"),
-        db.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
-      ])
-      .groupBy([
-        "post.id",
-        "post.entity_id",
-        "account.username",
-        "post.id",
-        "post.caption",
-        "post.created_at",
-        "post.entity_id",
-        "liked_by_me",
-        "bookmarked_by_me",
-      ])
-      .where(
-        "post.created_at",
-        "<",
-        cursor == undefined ? new Date() : new Date(cursor)
-      )
-      .limit(10)
-      .orderBy("post.created_at", "desc")
-      .execute();
-
+  async (req: Request, res: Response) => {
+    const cursor = req.query.cursor as string;
+    const posts = await postRepository.getNextPosts(req.account!.id, cursor);
     return res.status(200).json({
       success: true,
       posts,
@@ -123,93 +27,60 @@ export const getNextPosts = asyncWrapper(
 );
 
 export const createPost = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { caption } = req.body;
     const media = req.files as Express.Multer.File[];
 
-    const entity = await db
-      .insertInto("entity")
-      .defaultValues()
-      .returning(["id"])
-      .executeTakeFirstOrThrow();
-    const post = await db
-      .insertInto("post")
-      .values({
-        account_id: req.account!.id,
-        entity_id: entity.id,
-        caption,
-      })
-      .returning(["id"])
-      .executeTakeFirstOrThrow();
-
-    for (const [index, file] of media.entries()) {
-      const { error } = await supabase.storage
-        .from(process.env.SUPABASE_BUCKET_NAME!)
-        .upload(`posts/${post.id}/${index}`, file.buffer, {
-          contentType: file.mimetype,
-        });
-      if (error) {
-        throw new appError("Failed to upload media", 500);
-      }
-    }
-
-    await db
-      .insertInto("post_media")
-      .values(
-        media.map((_, index) => ({
-          post_id: post.id,
-          media_url: `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET_NAME}/posts/${post.id}/${index}`,
-        }))
-      )
-      .execute();
+    const entity = await postRepository.createEntity();
+    const post = await postRepository.createPost(
+      req.account!.id,
+      entity.id,
+      caption
+    );
+    const media_urls = await uploadMedia.post(media, post.id);
+    await postRepository.createPostMedia(post.id, media_urls);
 
     return res.status(201).json({
       success: true,
-      id: post.id,
+      post: {
+        ...post,
+        media_urls,
+        username: req.account!.username,
+        comments: [],
+        liked_by_me: false,
+        bookmarked_by_me: false,
+        like_count: 0,
+      },
     });
   }
 );
 
 export const deletePost = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { post_id } = req.params;
 
-    const post = await db
-      .selectFrom("post")
-      .select("account_id")
-      .where("id", "=", post_id)
-      .executeTakeFirstOrThrow();
+    const post = await postRepository.getPost(req.account!.id, post_id);
     if (post.account_id != req.account!.id) {
       throw new appError("Invalid credentials", 401);
     }
-    await db.deleteFrom("post").where("id", "=", post_id).execute();
+    await postRepository.deletePost(post_id);
 
-    return res.status(204).json({
+    return res.status(200).json({
       success: true,
     });
   }
 );
 
 export const editPost = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { post_id } = req.params;
     const { caption } = req.body;
 
-    const post = await db
-      .selectFrom("post")
-      .select("account_id")
-      .where("id", "=", post_id)
-      .executeTakeFirstOrThrow();
+    const post = await postRepository.getPost(req.account!.id, post_id);
     if (post.account_id != req.account!.id) {
       throw new appError("Invalid credentials", 401);
     }
-    await db
-      .updateTable("post")
-      .set({
-        caption,
-      })
-      .where("id", "=", post_id)
-      .execute();
+    await postRepository.editPost(post_id, caption);
 
     return res.status(200).json({
       success: true,
@@ -218,71 +89,57 @@ export const editPost = asyncWrapper(
 );
 
 export const createComment = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { post_id } = req.params;
     const { body, parent_id } = req.body;
 
-    const entity = await db
-      .insertInto("entity")
-      .returning(["id"])
-      .executeTakeFirstOrThrow();
-    await db
-      .insertInto("comment")
-      .values({
-        account_id: req.account!.id,
-        entity_id: entity.id,
-        post_id,
-        parent_id,
-        body,
-      })
-      .execute();
+    const entity = await postRepository.createEntity();
+    const comment = await postRepository.createComment(
+      req.account!.id,
+      entity.id,
+      post_id,
+      parent_id,
+      body
+    );
 
     return res.status(201).json({
       success: true,
+      comment: {
+        ...comment,
+        username: req.account!.username,
+        liked_by_me: false,
+        like_count: 0,
+      },
     });
   }
 );
 
 export const deleteComment = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { comment_id } = req.params;
 
-    const comment = await db
-      .selectFrom("comment")
-      .select("account_id")
-      .where("id", "=", comment_id)
-      .executeTakeFirstOrThrow();
+    const comment = await postRepository.getComment(comment_id);
     if (comment.account_id != req.account!.id) {
       throw new appError("Invalid credentials", 401);
     }
-    await db.deleteFrom("comment").where("id", "=", comment_id).execute();
+    await postRepository.deleteComment(comment_id);
 
-    return res.status(204).json({
+    return res.status(200).json({
       success: true,
     });
   }
 );
 
 export const editComment = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { comment_id } = req.params;
     const { body } = req.body;
 
-    const comment = await db
-      .selectFrom("comment")
-      .select("account_id")
-      .where("id", "=", comment_id)
-      .executeTakeFirstOrThrow();
+    const comment = await postRepository.getComment(comment_id);
     if (comment.account_id != req.account!.id) {
       throw new appError("Invalid credentials", 401);
     }
-    await db
-      .updateTable("comment")
-      .set({
-        body,
-      })
-      .where("id", "=", comment_id)
-      .execute();
+    await postRepository.editComment(comment_id, body);
 
     return res.status(200).json({
       success: true,
@@ -291,32 +148,18 @@ export const editComment = asyncWrapper(
 );
 
 export const likeEntity = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { entity_id } = req.params;
     let status = 201;
 
     try {
-      await db
-        .insertInto("liked_entity")
-        .values({
-          account_id: req.account!.id,
-          entity_id,
-        })
-        .execute();
-    } catch (err: any) {
-      if (err.code === "23503") {
+      await postRepository.createLike(req.account!.id, entity_id);
+    } catch (err: unknown) {
+      if ((err as appError).code === "23503") {
         throw new appError("Post not found", 404);
       }
-      status = 204;
-      await db
-        .deleteFrom("liked_entity")
-        .where((eb) =>
-          eb.and([
-            eb("entity_id", "=", entity_id),
-            eb("account_id", "=", req.account!.id),
-          ])
-        )
-        .execute();
+      await postRepository.deleteLike(req.account!.id, entity_id);
+      status = 200;
     }
 
     return res.status(status).json({
@@ -326,36 +169,40 @@ export const likeEntity = asyncWrapper(
 );
 
 export const bookmarkEntity = asyncWrapper(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { entity_id } = req.params;
     let status = 201;
 
     try {
-      await db
-        .insertInto("bookmarked_entity")
-        .values({
-          account_id: req.account!.id,
-          entity_id,
-        })
-        .execute();
-    } catch (err: any) {
-      if (err.code === "23503") {
+      await postRepository.createBookmark(req.account!.id, entity_id);
+    } catch (err: unknown) {
+      if ((err as appError).code === "23503") {
         throw new appError("Post not found", 404);
       }
-      status = 204;
-      await db
-        .deleteFrom("bookmarked_entity")
-        .where((eb) =>
-          eb.and([
-            eb("entity_id", "=", entity_id),
-            eb("account_id", "=", req.account!.id),
-          ])
-        )
-        .execute();
+      await postRepository.deleteBookmark(req.account!.id, entity_id);
+      status = 200;
     }
 
     return res.status(status).json({
       success: true,
+    });
+  }
+);
+
+export const getNextComments = asyncWrapper(
+  async (req: Request, res: Response) => {
+    const { post_id } = req.params;
+    const cursor = req.query.cursor as string;
+
+    const comments = await postRepository.getNextComments(
+      req.account!.id,
+      post_id,
+      cursor
+    );
+
+    return res.status(200).json({
+      success: true,
+      comments,
     });
   }
 );

@@ -10,8 +10,9 @@ import {
   editComment,
   likeEntity,
   bookmarkEntity,
-} from "controllers/post";
-import validateSession from "utils/validateSession.js";
+  getNextComments,
+} from "../controllers/post.js";
+import validateSession from "../utils/validateSession.js";
 import multer from "multer";
 
 const router: Router = express.Router();
@@ -25,6 +26,7 @@ router
   .delete(validateSession, deletePost)
   .put(validateSession, editPost)
   .post(validateSession, createComment);
+router.route("/:post_id/comments").get(validateSession, getNextComments);
 router
   .route("/comments/:comment_id")
   .delete(validateSession, deleteComment)

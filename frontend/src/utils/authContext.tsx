@@ -1,54 +1,29 @@
 "use client";
 
-import { createContext, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { createContext} from "react";
 
 interface User {
   fullName: string | null;
-  email: string;
-  username: string;
+  email: string | null;
+  username: string | null;
 }
 
-export const AuthContext = createContext<{
+interface AuthContextType {
   user: User | null;
-  loading: boolean;
-}>({
+}
+
+export const AuthContext = createContext<AuthContextType>({
   user: null,
-  loading: true,
 });
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/me`, {
-          method: "GET",
-          credentials: "include",
-        });
-        const data = await res.json();
-        if (data.success) {
-          setUser({
-            fullName: data.account.name,
-            email: data.account.email,
-            username: data.account.username,
-          });
-        }
-      } catch {
-        router.push("/500");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, []);
-
+export const AuthProvider = ({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: User | null;
+}) => {
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ user }}>{children}</AuthContext.Provider>
   );
 };

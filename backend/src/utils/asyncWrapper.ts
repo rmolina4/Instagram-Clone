@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 
-export default function asyncWrapper(fn: Function) {
+type AsyncFunction = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<void | Response<any, Record<string, any>>>;
+
+export default function asyncWrapper(fn: AsyncFunction) {
   return (req: Request, res: Response, next: NextFunction) => {
     fn(req, res, next).catch(next);
   };

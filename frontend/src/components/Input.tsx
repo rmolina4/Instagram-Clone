@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { APIResponse } from "@/utils/types";
 
 import { VscError } from "react-icons/vsc";
 import { FaRegCircleCheck } from "react-icons/fa6";
@@ -10,11 +10,7 @@ interface InputProps {
   placeholder?: string;
   value: string;
   setValue: (value: string) => void;
-  validate?: () => Promise<{
-    success: boolean;
-    message: string;
-    status?: number;
-  }>;
+  validate?: () => Promise<APIResponse>;
   isPrivate?: boolean;
   showError?: boolean;
   name: string;
@@ -35,9 +31,8 @@ export default function Input({
   const [showValue, setShowValue] = useState<boolean>(
     isPrivate == undefined ? true : !isPrivate
   );
-  const router = useRouter();
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
     setExternalValue(e.target.value);
     setIsTouched(true);
     setIsBlurred(false);
@@ -48,9 +43,6 @@ export default function Input({
     if (!validate) return setIsBlurred(true);
     const result = await validate();
     if (!result.success) {
-      if (result.status === 500) {
-        return router.push("/500");
-      }
       setError(result.message);
     }
     setIsBlurred(true);

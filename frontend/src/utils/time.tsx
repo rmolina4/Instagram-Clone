@@ -1,7 +1,6 @@
 export const timeAgo = (input: string) => {
   const prev = new Date(input);
   const now = new Date();
-
   const diff = now.getTime() - prev.getTime(); 
   const diffInSeconds = diff / 1000;
   const diffInMinutes = diffInSeconds / 60;

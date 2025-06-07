@@ -2,18 +2,11 @@
 
 import Image from "next/image";
 import { useContext } from "react";
-import { AuthContext } from "@/utils/authContext";
-import { useRouter } from "next/navigation";
+import { AuthContext } from "@/utils/AuthContext";
 import Link from "next/link";
 
 export const Sidebar = ({ className }: { className?: string }) => {
-  const router = useRouter();
-
-  const { user, loading } = useContext(AuthContext);
-  if (!loading && !user) {
-    router.push("/accounts/login");
-  }
-
+  const { user } = useContext(AuthContext);
   return (
     <div className={`flex flex-col mt-9 pl-16 ${className}`}>
       <div className="flex items-center gap-2 w-[320px] px-4">

@@ -17,6 +17,7 @@ CREATE Table profile (
     account_id BIGINT,
     name VARCHAR(50),
     bio VARCHAR(300),
+    avatar_url VARCHAR(255) DEFAULT NULL,
     PRIMARY KEY(id),
     FOREIGN KEY(account_id) REFERENCES account(id) ON DELETE CASCADE
 );
@@ -30,6 +31,7 @@ CREATE TABLE liked_entity (
     id BIGSERIAL,
     account_id BIGINT NOT NULL,
     entity_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(id),
     FOREIGN KEY(account_id) REFERENCES account(id) ON DELETE CASCADE,
     FOREIGN KEY(entity_id) REFERENCES entity(id) ON DELETE CASCADE,
@@ -40,6 +42,7 @@ CREATE TABLE bookmarked_entity (
     id BIGSERIAL,
     account_id BIGINT NOT NULL,
     entity_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(id),
     FOREIGN KEY(account_id) REFERENCES account(id) ON DELETE CASCADE,
     FOREIGN KEY(entity_id) REFERENCES entity(id) ON DELETE CASCADE,

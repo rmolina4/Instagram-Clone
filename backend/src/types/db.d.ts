@@ -24,6 +24,7 @@ export interface Account {
 
 export interface BookmarkedEntity {
   account_id: Int8;
+  created_at: Generated<Timestamp | null>;
   entity_id: Int8;
   id: Generated<Int8>;
 }
@@ -50,6 +51,7 @@ export interface Follow {
 
 export interface LikedEntity {
   account_id: Int8;
+  created_at: Generated<Timestamp | null>;
   entity_id: Int8;
   id: Generated<Int8>;
 }
@@ -79,6 +81,7 @@ export interface PostMedia {
 
 export interface Profile {
   account_id: Int8 | null;
+  avatar_url: string | null;
   bio: string | null;
   id: Generated<Int8>;
   name: string | null;

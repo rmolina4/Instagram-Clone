@@ -3,13 +3,12 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useContext } from "react";
-import { AuthContext } from "@/utils/authContext";
+import { AuthContext } from "../utils/AuthContext";
 import { NavItem } from "./NavItem";
 import { IconType } from "react-icons";
-import PostModal from "./PostModal";
 import OptionsMenu from "./OptionsMenu";
+import CreatePostModal from "./CreatePostModal";
 
 import { MdOutlineSearch, MdExplore, MdOutlineExplore } from "react-icons/md";
 import { GoHomeFill, GoHome } from "react-icons/go";
@@ -40,16 +39,11 @@ const iconContainerStyles =
   "w-[48px] h-[48px] min-w-[48px] flex justify-center items-center p-3";
 
 export default function Navbar() {
-  const [searchVisible, setSearchVisible] = useState(false);
-  const [notificationsVisible, setNotificationsVisible] = useState(false);
-  const [postModalVisible, setPostModalVisible] = useState(false);
-  const [optionsVisible, setOptionsVisible] = useState(false);
-  const router = useRouter();
-
-  const { user, loading } = useContext(AuthContext);
-  if (!loading && !user) {
-    router.push("/accounts/login");
-  }
+  const [searchVisible, setSearchVisible] = useState<boolean>(false);
+  const [notificationsVisible, setNotificationsVisible] = useState<boolean>(false);
+  const [createPostModalVisible, setCreatePostModalVisible] = useState<boolean>(false);
+  const [optionsVisible, setOptionsVisible] = useState<boolean>(false);
+  const { user } = useContext(AuthContext);
 
   const NavItems: NavItem[] = [
     {
@@ -61,7 +55,7 @@ export default function Navbar() {
       onClick: () => {
         setSearchVisible(false);
         setNotificationsVisible(false);
-        setPostModalVisible(false);
+        setCreatePostModalVisible(false);
         setOptionsVisible(false);
       },
     },
@@ -73,7 +67,7 @@ export default function Navbar() {
       isButton: true,
       onClick: () => {
         setNotificationsVisible(false);
-        setPostModalVisible(false);
+        setCreatePostModalVisible(false);
         setOptionsVisible(false);
         setSearchVisible(!searchVisible);
       },
@@ -88,7 +82,7 @@ export default function Navbar() {
       onClick: () => {
         setSearchVisible(false);
         setNotificationsVisible(false);
-        setPostModalVisible(false);
+        setCreatePostModalVisible(false);
         setOptionsVisible(false);
       },
     },
@@ -101,7 +95,7 @@ export default function Navbar() {
       onClick: () => {
         setSearchVisible(false);
         setNotificationsVisible(false);
-        setPostModalVisible(false);
+        setCreatePostModalVisible(false);
         setOptionsVisible(false);
       },
     },
@@ -114,7 +108,7 @@ export default function Navbar() {
       onClick: () => {
         setSearchVisible(false);
         setNotificationsVisible(false);
-        setPostModalVisible(false);
+        setCreatePostModalVisible(false);
         setOptionsVisible(false);
       },
     },
@@ -126,7 +120,7 @@ export default function Navbar() {
       isButton: true,
       onClick: () => {
         setSearchVisible(false);
-        setPostModalVisible(false);
+        setCreatePostModalVisible(false);
         setOptionsVisible(false);
         setNotificationsVisible(!notificationsVisible);
       },
@@ -137,7 +131,7 @@ export default function Navbar() {
       icon: AiOutlinePlusSquare,
       isButton: true,
       onClick: () => {
-        setPostModalVisible(true);
+        setCreatePostModalVisible(true);
       },
     },
     {
@@ -179,7 +173,7 @@ export default function Navbar() {
             onClick={() => {
               setSearchVisible(false);
               setNotificationsVisible(false);
-              setPostModalVisible(false);
+              setCreatePostModalVisible(false);
               setOptionsVisible(false);
             }}
           >
@@ -188,7 +182,7 @@ export default function Navbar() {
             </div>
           </Link>
         </div>
-        <div className="flex flex-col flex-grow gap-2 mt-6 pb-6 relative">
+        <div className="flex flex-col flex-grow gap-2 mt-6 pb-4 relative">
           {NavItems.map((item) => (
             <NavItem
               key={item.label}
@@ -208,7 +202,7 @@ export default function Navbar() {
               <OptionsMenu />
             </div>
           )}
-          {postModalVisible && <PostModal setPostModalVisible={setPostModalVisible} />}
+          {createPostModalVisible && <CreatePostModal setCreatePostModalVisible={setCreatePostModalVisible} />}
         </div>
       </div>
       <div

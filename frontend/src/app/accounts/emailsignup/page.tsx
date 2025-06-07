@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import SignupForm from "@/components/SignupForm";
 import Logo from "@/components/Logo";
@@ -10,7 +12,7 @@ export default function EmailSignup() {
         <h2 className="text-center text-gray-500 font-semibold mx-10 mb-[10px]">
           Sign up to see photos and videos from your friends.
         </h2>
-        <SignupForm/>
+        <SignupForm />
       </div>
       <div className="flex flex-col items-center border-1 border-gray-300 w-[350px] py-[25px] leading-none">
         <p className="text-sm">Have an account?</p>

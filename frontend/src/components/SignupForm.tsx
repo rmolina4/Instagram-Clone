@@ -10,7 +10,9 @@ import {
   validateUsername,
 } from "../utils/validation";
 import { Loader } from "./Loader";
+import safeFetch from "@/utils/safeFetch";
 import { FaGoogle } from "react-icons/fa";
+import { APIResponse } from "@/utils/types";
 
 interface RegisterFormData {
   email: string;
@@ -37,32 +39,28 @@ export default function SignupForm() {
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
     setIsLoading(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/register`, {
+    const data = await safeFetch<APIResponse>(
+      `${process.env.NEXT_PUBLIC_API_URL}/register`,
+      {
         method: "POST",
         body: JSON.stringify({
-          email: formData.get("email"),
-          password: formData.get("password"),
-          fullName: formData.get("fullName"),
-          username: formData.get("username"),
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.fullName,
+          username: formData.username,
         }),
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-      });
-      const data = await res.json();
-      if (data.success) {
-        return router.push("/");
       }
-      setError(data.message);
-    } catch {
-      router.push("/500");
-    } finally {
-      setIsLoading(false);
+    );
+    if (data.success) {
+      return router.push("/");
     }
+    setError(data.message!);
+    setIsLoading(false);
   };
 
   return (
