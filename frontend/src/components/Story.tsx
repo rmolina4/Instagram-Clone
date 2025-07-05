@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-export const Story = () => {
+export default function Story() {
   return (
     <div className="flex w-full mt-4 mb-7 py-2">
       <button className="flex flex-col items-center text-xs text-gray-500 hover:cursor-pointer">
@@ -16,4 +16,4 @@ export const Story = () => {
       </button>
     </div>
   );
-};
+}

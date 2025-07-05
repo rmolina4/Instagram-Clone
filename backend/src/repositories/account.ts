@@ -14,13 +14,13 @@ export const getProfile = async (account_id: string, username: string) => {
         ])
       )
     )
-    .select([
+    .select((eb) => [
       "account.username",
       "profile.name",
       "profile.bio",
       "profile.avatar_url",
-      db.fn.count("follow.account_id").as("follower_count"),
-      db.fn.count("follow.followed_id").as("following_count"),
+      eb.fn.count("follow.account_id").distinct().as("follower_count"),
+      eb.fn.count("follow.followed_id").distinct().as("following_count"),
       jsonArrayFrom(query.getNextAccountPosts(account_id, username)).as(
         "posts"
       ),
@@ -30,15 +30,17 @@ export const getProfile = async (account_id: string, username: string) => {
       jsonArrayFrom(query.getNextBookmarkedPosts(account_id, username)).as(
         "bookmarked_posts"
       ),
+      eb("account.id", "=", account_id).as("is_owner"),
     ])
     .groupBy([
       "account.username",
       "profile.name",
       "profile.bio",
       "profile.avatar_url",
+      "is_owner",
     ])
     .where("account.username", "=", username)
-    .execute();
+    .executeTakeFirstOrThrow();
 };
 
 export const editProfile = async (
@@ -153,7 +155,12 @@ export const editMessage = async (message_id: string, body: string) => {
 export const getMessages = async (account_id: string, receiver_id: string) => {
   return await db
     .selectFrom("message")
-    .selectAll()
+    .select((eb) => [
+      "id",
+      "body",
+      "created_at",
+      eb("account_id", "=", account_id).as("is_owner"),
+    ])
     .where((eb) =>
       eb.or([
         eb.and([
@@ -175,7 +182,7 @@ export const getAccountByUsername = async (username: string) => {
     .selectFrom("account")
     .select("id")
     .where("username", "=", username)
-    .executeTakeFirstOrThrow();
+    .executeTakeFirst();
 };
 
 export const getAccountByEmail = async (email: string) => {
@@ -183,5 +190,5 @@ export const getAccountByEmail = async (email: string) => {
     .selectFrom("account")
     .select("id")
     .where("email", "=", email)
-    .executeTakeFirstOrThrow();
+    .executeTakeFirst();
 };

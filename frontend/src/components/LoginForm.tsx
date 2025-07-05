@@ -5,7 +5,7 @@ import Divider from "./Divider";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "./Input";
-import { Loader } from "./Loader";
+import Loader from "./Loader";
 import safeFetch from "@/utils/safeFetch";
 import { APIResponse } from "@/utils/types";
 
@@ -42,9 +42,9 @@ export default function LoginForm() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-      },
+      }
     );
-    if (data!.success) {
+    if (data.success) {
       return router.push("/");
     }
     setError(data!.message!);
@@ -91,7 +91,9 @@ export default function LoginForm() {
       <Divider className="mt-[14px] mb-[22px] mx-10" />
       <button
         className="w-full flex gap-2 text-blue-500 hover:cursor-pointer mt-2 mb-2 items-center justify-center rounded-lg"
-        onClick={() => {}}
+        onClick={(e) => {
+          e.preventDefault();
+        }}
       >
         <FaGoogle />
         Log in with Google

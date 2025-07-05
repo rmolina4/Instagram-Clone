@@ -53,7 +53,7 @@ CREATE TABLE post (
     id BIGSERIAL,
     account_id BIGINT NOT NULL,
     entity_id BIGINT NOT NULL UNIQUE,
-    caption VARCHAR(300),
+    body VARCHAR(300),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(id),
     FOREIGN KEY(account_id) REFERENCES account(id) ON DELETE CASCADE,

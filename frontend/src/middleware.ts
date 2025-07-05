@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.includes("/accounts");
 
-  if(!isAuthRoute && !isLoggedIn) {
+  if (!isAuthRoute && !isLoggedIn) {
     return NextResponse.redirect(new URL("/accounts/login", request.url));
   }
 
@@ -18,5 +18,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher:  "/((?!_next/static|_next/image|favicon.ico).*)",
+  matcher: "/((?!_next/static|_next/image|favicon.ico).*)",
 };

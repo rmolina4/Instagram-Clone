@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "../../components/Navbar";
 import "@/app/globals.css";
-import { PostProvider } from "@/utils/PostProvider";
-import { AuthProvider } from "@/utils/AuthContext";
-import { getUser } from "@/utils/getUser";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import AppProvider from "@/utils/AppProvider";
+import { getUser } from "@/utils/getData";
+import Error from "@/components/Error";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -28,17 +17,11 @@ export default async function RootLayout({
 }>) {
   const user = await getUser();
   return (
-    <AuthProvider
-    user={user ? {
-      fullName: user.name,
-      email: user.email,
-      username: user.username,
-    } : null}
-  >
-    <PostProvider posts={[]}>
+    <AppProvider user={user}>
       <Navbar />
-      <main className="ml-[73px] xl:ml-[245px]">{children}</main>
-    </PostProvider>
-    </AuthProvider>
+      <main className="ml-[73px] xl:ml-[245px]">
+        <Error>{children}</Error>
+      </main>
+    </AppProvider>
   );
 }

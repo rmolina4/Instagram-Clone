@@ -13,9 +13,7 @@ interface LogoProps {
 export default function Logo({ className }: LogoProps) {
   return (
     <Link className={`w-full ${className}`} href="/">
-      <h1 className={`${myFont.className} font-thin`}>
-        Instagram
-      </h1>
+      <h1 className={`${myFont.className} font-thin`}>Instagram</h1>
     </Link>
   );
 }

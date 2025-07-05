@@ -1,23 +1,23 @@
-export interface Comment {
+export interface BaseResource {
   id: string;
   body: string | null;
   username: string;
   created_at: string;
-  parent_id: string | null;
   entity_id: string;
   like_count: number;
   liked_by_me: boolean;
+  is_owner: boolean;
 }
 
-export interface Post {
-  id: string;
-  caption: string;
-  created_at: string;
-  entity_id: string;
+export interface Comment extends BaseResource {
+  parent_id: string | null;
+  reply_count: number;
+  root_id?: string;
+}
+
+export interface Post extends BaseResource {
   account_id: string;
-  username: string;
-  like_count: number;
-  liked_by_me: boolean;
+  followed_by_me: boolean;
   bookmarked_by_me: boolean;
   comments: Comment[];
   media_urls: string[];
@@ -32,6 +32,7 @@ export interface Profile {
   posts: Post[];
   liked_posts: Post[];
   bookmarked_posts: Post[];
+  is_owner: boolean;
 }
 
 export interface Account {
@@ -44,6 +45,11 @@ export interface Account {
 export interface APIResponse {
   success: boolean;
   message: string;
+  status: number;
+}
+
+export interface GetRepliesResponse extends APIResponse {
+  replies: Comment[];
 }
 
 export interface GetPostResponse extends APIResponse {

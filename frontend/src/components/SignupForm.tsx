@@ -9,7 +9,7 @@ import {
   validatePassword,
   validateUsername,
 } from "../utils/validation";
-import { Loader } from "./Loader";
+import Loader from "./Loader";
 import safeFetch from "@/utils/safeFetch";
 import { FaGoogle } from "react-icons/fa";
 import { APIResponse } from "@/utils/types";
@@ -68,7 +68,9 @@ export default function SignupForm() {
       <div className="mx-10 mt-2 mb-2">
         <button
           className="w-full flex gap-2 bg-blue-500 text-white hover:cursor-pointer hover:bg-blue-600 p-1 items-center justify-center rounded-lg"
-          onClick={() => {}}
+          onClick={(e) => {
+            e.preventDefault();
+          }}
         >
           <FaGoogle />
           Log in with Google

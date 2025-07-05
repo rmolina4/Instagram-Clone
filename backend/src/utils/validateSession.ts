@@ -16,8 +16,13 @@ const validateSession = asyncWrapper(
       if (session) {
         await authRepository.deleteSession(sid);
       }
-      res.clearCookie("sid");
-      throw new appError("Session Expired.", 401);
+      for (const cookie in req.cookies) {
+        res.clearCookie(cookie);
+      }
+      return res.status(401).json({
+        success: false,
+        message: "Session Expired.",
+      });
     }
 
     req.account = {
@@ -27,7 +32,7 @@ const validateSession = asyncWrapper(
       name: session.name,
     };
     next();
-  }
+  },
 );
 
 export default validateSession;

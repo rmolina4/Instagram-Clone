@@ -12,9 +12,9 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGIN?.split(","),
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  })
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+  }),
 );
 app.use(express.json());
 app.use(cookieParser());

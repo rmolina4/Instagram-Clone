@@ -6,7 +6,7 @@ import Image from "next/image";
 import { NavItem as NavItemType } from "./Navbar";
 
 const itemStyles =
-  "w-full flex items-center hover:bg-gray-100 rounded-lg hover:cursor-pointer";
+  "w-full flex items-center hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-lg hover:cursor-pointer";
 const iconContainerStyles =
   "w-[48px] h-[48px] min-w-[48px] flex justify-center items-center p-3 rounded-md";
 
@@ -14,7 +14,7 @@ interface NavItemProps extends NavItemType {
   popupOpen: boolean;
 }
 
-export const NavItem = ({
+export default function NavItem({
   label,
   href,
   icon,
@@ -24,7 +24,7 @@ export const NavItem = ({
   popupOpen,
   childOpen,
   alignEnd,
-}: NavItemProps) => {
+}: NavItemProps) {
   const pathname = usePathname();
   return isButton ? (
     <div className={`${alignEnd ? "mt-auto" : ""}`}>
@@ -68,7 +68,7 @@ export const NavItem = ({
               alt={label}
               width={24}
               height={24}
-              className="border-2 border-black rounded-full"
+              className="border-2 border-black dark:border-white rounded-full"
               unoptimized
             />
           ) : activeIcon ? (
@@ -98,4 +98,4 @@ export const NavItem = ({
       )}
     </Link>
   );
-};
+}

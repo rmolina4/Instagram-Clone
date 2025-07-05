@@ -1,37 +1,6 @@
 import db from "../db/db.js";
-import { Expression, ExpressionBuilder } from "kysely";
-import { DB } from "types/db";
+import { Expression } from "kysely";
 import { jsonArrayFrom } from "kysely/helpers/postgres";
-
-export function likedByMe(
-  eb: ExpressionBuilder<DB, keyof DB>,
-  account_id: string,
-  entity_id: Expression<string>
-) {
-  return eb
-    .exists(
-      db
-        .selectFrom("liked_entity")
-        .where("liked_entity.account_id", "=", account_id)
-        .where("liked_entity.entity_id", "=", entity_id)
-    )
-    .as("liked_by_me");
-}
-
-export function bookmarkedByMe(
-  eb: ExpressionBuilder<DB, keyof DB>,
-  account_id: string,
-  entity_id: Expression<string>
-) {
-  return eb
-    .exists(
-      db
-        .selectFrom("bookmarked_entity")
-        .where("bookmarked_entity.account_id", "=", account_id)
-        .where("bookmarked_entity.entity_id", "=", entity_id)
-    )
-    .as("bookmarked_by_me");
-}
 
 export function getPostComments(
   account_id: string,
@@ -39,38 +8,63 @@ export function getPostComments(
   cursor?: string
 ) {
   return db
-    .selectFrom("comment")
+    .withRecursive("comment_chain", (qb) => {
+      return qb
+        .selectFrom("comment")
+        .select(["comment.id as root_id", "comment.id"])
+        .where((eb) =>
+          eb.and([
+            eb("comment.post_id", "=", post_id),
+            eb("comment.parent_id", "is", null),
+            eb(
+              "comment.created_at",
+              ">",
+              cursor == undefined ? new Date(0) : new Date(cursor)
+            ),
+          ])
+        )
+        .union(
+          qb
+            .selectFrom("comment")
+            .innerJoin("comment_chain", "comment_chain.id", "comment.parent_id")
+            .select(["comment_chain.root_id", "comment.id"])
+        );
+    })
+    .selectFrom("comment_chain")
+    .innerJoin("comment", "comment.id", "comment_chain.root_id")
     .innerJoin("account", "comment.account_id", "account.id")
     .leftJoin("liked_entity", "liked_entity.entity_id", "comment.entity_id")
-    .where((eb) =>
-      eb.and([
-        eb("comment.post_id", "=", post_id),
-        eb(
-          "comment.created_at",
-          "<",
-          cursor == undefined ? new Date() : new Date(cursor)
-        ),
-      ])
-    )
+    .selectAll("comment")
     .select((eb) => [
-      "comment.id",
-      "comment.body",
       "account.username",
-      "comment.created_at",
-      "comment.parent_id",
-      "comment.entity_id",
       eb.cast(eb.fn.count("liked_entity.id"), "integer").as("like_count"),
-      likedByMe(eb, account_id, eb.ref("comment.entity_id")),
+      eb
+        .case()
+        .when(eb.ref("liked_entity.account_id"), "=", account_id)
+        .then(true)
+        .else(false)
+        .end()
+        .as("liked_by_me"),
+      eb("account.id", "=", account_id).as("is_owner"),
+      eb(eb.cast(eb.fn.count("comment_chain.id"), "integer"), "-", "1").as(
+        "reply_count"
+      ),
     ])
     .groupBy([
+      "account.id",
+      "liked_entity.account_id",
+      "account.username",
       "comment.id",
       "comment.body",
-      "account.username",
       "comment.created_at",
       "comment.parent_id",
       "comment.entity_id",
+      "comment.account_id",
+      "comment.post_id",
+      "root_id",
     ])
-    .orderBy("comment.created_at", "desc")
+    .orderBy("comment.created_at", "asc")
+    .limit(10);
 }
 
 export function getNextLikedPosts(
@@ -85,28 +79,49 @@ export function getNextLikedPosts(
       join.on("liked_entity.account_id", "=", account_id)
     )
     .leftJoin("post_media", "post.id", "post_media.post_id")
+    .leftJoin(
+      "bookmarked_entity",
+      "bookmarked_entity.entity_id",
+      "post.entity_id"
+    )
     .select((eb) => [
       "account.username",
       "post.id",
-      "post.caption",
+      "post.body",
       "post.created_at",
       "post.entity_id",
       "post.account_id",
       eb.cast(eb.fn.count("liked_entity.id"), "integer").as("like_count"),
-      likedByMe(eb, account_id, eb.ref("post.entity_id")),
-      bookmarkedByMe(eb, account_id, eb.ref("post.entity_id")),
+      eb
+        .case()
+        .when(eb.ref("liked_entity.account_id"), "=", account_id)
+        .then(true)
+        .else(false)
+        .end()
+        .as("liked_by_me"),
+      eb
+        .case()
+        .when(eb.ref("bookmarked_entity.account_id"), "=", account_id)
+        .then(true)
+        .else(false)
+        .end()
+        .as("bookmarked_by_me"),
       jsonArrayFrom(getPostComments(account_id, eb.ref("post.id"))).as(
         "comments"
       ),
-      db.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      eb.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      eb("account.id", "=", account_id).as("is_owner"),
     ])
     .groupBy([
       "account.username",
       "post.id",
-      "post.caption",
+      "post.body",
       "post.created_at",
       "post.entity_id",
       "post.account_id",
+      "liked_entity.account_id",
+      "bookmarked_entity.account_id",
+      "is_owner",
     ])
     .where(
       "post.created_at",
@@ -134,25 +149,41 @@ export function getNextBookmarkedPosts(
     .select((eb) => [
       "account.username",
       "post.id",
-      "post.caption",
+      "post.body",
       "post.created_at",
       "post.entity_id",
       "post.account_id",
       eb.cast(eb.fn.count("liked_entity.id"), "integer").as("like_count"),
-      likedByMe(eb, account_id, eb.ref("post.entity_id")),
-      bookmarkedByMe(eb, account_id, eb.ref("post.entity_id")),
+      eb
+        .case()
+        .when(eb.ref("liked_entity.account_id"), "=", account_id)
+        .then(true)
+        .else(false)
+        .end()
+        .as("liked_by_me"),
+      eb
+        .case()
+        .when(eb.ref("bookmarked_entity.account_id"), "=", account_id)
+        .then(true)
+        .else(false)
+        .end()
+        .as("bookmarked_by_me"),
       jsonArrayFrom(getPostComments(account_id, eb.ref("post.id"))).as(
         "comments"
       ),
-      db.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      eb.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      eb("account.id", "=", account_id).as("is_owner"),
     ])
     .groupBy([
       "account.username",
       "post.id",
-      "post.caption",
+      "post.body",
       "post.created_at",
       "post.entity_id",
       "post.account_id",
+      "liked_entity.account_id",
+      "bookmarked_entity.account_id",
+      "is_owner",
     ])
     .where(
       "post.created_at",
@@ -173,29 +204,50 @@ export function getNextAccountPosts(
     .selectFrom("post")
     .innerJoin("account", "post.account_id", "account.id")
     .leftJoin("liked_entity", "liked_entity.entity_id", "post.entity_id")
+    .leftJoin(
+      "bookmarked_entity",
+      "bookmarked_entity.entity_id",
+      "post.entity_id"
+    )
     .leftJoin("post_media", "post.id", "post_media.post_id")
     .select((eb) => [
       "account.username",
       "post.id",
-      "post.caption",
+      "post.body",
       "post.created_at",
       "post.entity_id",
       "post.account_id",
       eb.cast(eb.fn.count("liked_entity.id"), "integer").as("like_count"),
-      likedByMe(eb, account_id, eb.ref("post.entity_id")),
-      bookmarkedByMe(eb, account_id, eb.ref("post.entity_id")),
+      eb
+        .case()
+        .when(eb.ref("liked_entity.account_id"), "=", account_id)
+        .then(true)
+        .else(false)
+        .end()
+        .as("liked_by_me"),
+      eb
+        .case()
+        .when(eb.ref("bookmarked_entity.account_id"), "=", account_id)
+        .then(true)
+        .else(false)
+        .end()
+        .as("bookmarked_by_me"),
       jsonArrayFrom(getPostComments(account_id, eb.ref("post.id"))).as(
         "comments"
       ),
-      db.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      eb.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      eb("account.id", "=", account_id).as("is_owner"),
     ])
     .groupBy([
       "account.username",
       "post.id",
-      "post.caption",
+      "post.body",
       "post.created_at",
       "post.entity_id",
       "post.account_id",
+      "liked_entity.account_id",
+      "bookmarked_entity.account_id",
+      "is_owner",
     ])
     .where(
       "post.created_at",

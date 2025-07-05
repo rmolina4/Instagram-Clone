@@ -1,7 +1,7 @@
 import pg from "pg";
 import { createClient } from "@supabase/supabase-js";
 import { Kysely, PostgresDialect } from "kysely";
-import { DB } from "../types/db.js";
+import type { DB } from "../types/db.js";
 const { Pool } = pg;
 
 export const supabase = createClient(
@@ -18,3 +18,4 @@ const db = new Kysely<DB>({
 });
 
 export default db;
+export type { DB };

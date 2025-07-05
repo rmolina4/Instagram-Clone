@@ -31,6 +31,7 @@ export default function Input({
   const [showValue, setShowValue] = useState<boolean>(
     isPrivate == undefined ? true : !isPrivate
   );
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     setExternalValue(e.target.value);
@@ -42,9 +43,7 @@ export default function Input({
     if (!isTouched) return;
     if (!validate) return setIsBlurred(true);
     const result = await validate();
-    if (!result.success) {
-      setError(result.message);
-    }
+    setError(result.success ? null : result.message);
     setIsBlurred(true);
   };
 

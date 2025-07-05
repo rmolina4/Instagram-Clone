@@ -4,13 +4,13 @@ import {
   getNextPosts,
   getPost,
   editPost,
-  deletePost,
   createComment,
-  deleteComment,
   editComment,
   likeEntity,
   bookmarkEntity,
   getNextComments,
+  deleteEntity,
+  getReplies,
 } from "../controllers/post.js";
 import validateSession from "../utils/validateSession.js";
 import multer from "multer";
@@ -23,17 +23,17 @@ router.get("/next", validateSession, getNextPosts);
 router
   .route("/:post_id")
   .get(validateSession, getPost)
-  .delete(validateSession, deletePost)
   .put(validateSession, editPost)
   .post(validateSession, createComment);
 router.route("/:post_id/comments").get(validateSession, getNextComments);
 router
   .route("/comments/:comment_id")
-  .delete(validateSession, deleteComment)
-  .put(validateSession, editComment);
+  .put(validateSession, editComment)
+  .get(validateSession, getReplies);
 router
   .route("/:entity_id/action")
   .post(validateSession, bookmarkEntity)
-  .put(validateSession, likeEntity);
+  .put(validateSession, likeEntity)
+  .delete(validateSession, deleteEntity);
 
 export default router;

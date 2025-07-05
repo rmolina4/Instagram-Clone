@@ -2,18 +2,17 @@ import { Request, Response } from "express";
 import asyncWrapper from "../utils/asyncWrapper.js";
 import appError from "../utils/appError.js";
 import * as postRepository from "../repositories/post.js";
-import * as uploadMedia from "../utils/uploadMedia.js";
+import * as mediaHandler from "../utils/mediaHandler.js";
+import db from "../db/db.js";
 
-export const getPost = asyncWrapper(
-  async (req: Request, res: Response) => {
-    const { post_id } = req.params;
-    const post = await postRepository.getPost(req.account!.id, post_id);
-    return res.status(200).json({
-      success: true,
-      post,
-    });
-  }
-);
+export const getPost = asyncWrapper(async (req: Request, res: Response) => {
+  const { post_id } = req.params;
+  const post = await postRepository.getPost(req.account!.id, post_id);
+  return res.status(200).json({
+    success: true,
+    post,
+  });
+});
 
 export const getNextPosts = asyncWrapper(
   async (req: Request, res: Response) => {
@@ -26,19 +25,20 @@ export const getNextPosts = asyncWrapper(
   }
 );
 
-export const createPost = asyncWrapper(
-  async (req: Request, res: Response) => {
-    const { caption } = req.body;
-    const media = req.files as Express.Multer.File[];
+export const createPost = asyncWrapper(async (req: Request, res: Response) => {
+  const { body } = req.body;
+  const media = req.files as Express.Multer.File[];
 
-    const entity = await postRepository.createEntity();
+  await db.transaction().execute(async (trx) => {
+    const entity = await postRepository.createEntity(trx);
     const post = await postRepository.createPost(
+      trx,
       req.account!.id,
       entity.id,
-      caption
+      body
     );
-    const media_urls = await uploadMedia.post(media, post.id);
-    await postRepository.createPostMedia(post.id, media_urls);
+    const media_urls = await mediaHandler.createPost(media, post.id);
+    await postRepository.createPostMedia(trx, post.id, media_urls);
 
     return res.status(201).json({
       success: true,
@@ -50,123 +50,90 @@ export const createPost = asyncWrapper(
         liked_by_me: false,
         bookmarked_by_me: false,
         like_count: 0,
+        is_owner: true,
       },
     });
+  });
+});
+
+export const editPost = asyncWrapper(async (req: Request, res: Response) => {
+  const { post_id } = req.params;
+  const { caption } = req.body;
+
+  const post = await postRepository.getPost(req.account!.id, post_id);
+  if (post.account_id != req.account!.id) {
+    throw new appError("Access denied", 403);
   }
-);
+  await postRepository.editPost(post_id, caption);
 
-export const deletePost = asyncWrapper(
-  async (req: Request, res: Response) => {
-    const { post_id } = req.params;
-
-    const post = await postRepository.getPost(req.account!.id, post_id);
-    if (post.account_id != req.account!.id) {
-      throw new appError("Invalid credentials", 401);
-    }
-    await postRepository.deletePost(post_id);
-
-    return res.status(200).json({
-      success: true,
-    });
-  }
-);
-
-export const editPost = asyncWrapper(
-  async (req: Request, res: Response) => {
-    const { post_id } = req.params;
-    const { caption } = req.body;
-
-    const post = await postRepository.getPost(req.account!.id, post_id);
-    if (post.account_id != req.account!.id) {
-      throw new appError("Invalid credentials", 401);
-    }
-    await postRepository.editPost(post_id, caption);
-
-    return res.status(200).json({
-      success: true,
-    });
-  }
-);
+  return res.status(200).json({
+    success: true,
+  });
+});
 
 export const createComment = asyncWrapper(
   async (req: Request, res: Response) => {
     const { post_id } = req.params;
     const { body, parent_id } = req.body;
 
-    const entity = await postRepository.createEntity();
-    const comment = await postRepository.createComment(
-      req.account!.id,
-      entity.id,
-      post_id,
-      parent_id,
-      body
-    );
+    await db.transaction().execute(async (trx) => {
+      const entity = await postRepository.createEntity(trx);
+      const comment = await postRepository.createComment(
+        trx,
+        req.account!.id,
+        entity.id,
+        post_id,
+        parent_id,
+        body
+      );
 
-    return res.status(201).json({
-      success: true,
-      comment: {
-        ...comment,
-        username: req.account!.username,
-        liked_by_me: false,
-        like_count: 0,
-      },
+      return res.status(201).json({
+        success: true,
+        comment: {
+          ...comment,
+          username: req.account!.username,
+          liked_by_me: false,
+          like_count: 0,
+          is_owner: true,
+        },
+      });
     });
   }
 );
 
-export const deleteComment = asyncWrapper(
-  async (req: Request, res: Response) => {
-    const { comment_id } = req.params;
+export const editComment = asyncWrapper(async (req: Request, res: Response) => {
+  const { comment_id } = req.params;
+  const { body } = req.body;
 
-    const comment = await postRepository.getComment(comment_id);
-    if (comment.account_id != req.account!.id) {
-      throw new appError("Invalid credentials", 401);
+  const comment = await postRepository.getComment(comment_id);
+  if (comment.account_id != req.account!.id) {
+    throw new appError("Access denied", 403);
+  }
+  await postRepository.editComment(comment_id, body);
+
+  return res.status(200).json({
+    success: true,
+  });
+});
+
+export const likeEntity = asyncWrapper(async (req: Request, res: Response) => {
+  const { entity_id } = req.params;
+  let status = 201;
+
+  try {
+    await postRepository.createLike(req.account!.id, entity_id);
+  } catch (err: unknown) {
+    if ((err as appError).code === "23503") {
+      throw new appError("Post not found", 404);
     }
-    await postRepository.deleteComment(comment_id);
-
-    return res.status(200).json({
-      success: true,
-    });
+    await postRepository.deleteLike(req.account!.id, entity_id);
+    status = 200;
   }
-);
 
-export const editComment = asyncWrapper(
-  async (req: Request, res: Response) => {
-    const { comment_id } = req.params;
-    const { body } = req.body;
-
-    const comment = await postRepository.getComment(comment_id);
-    if (comment.account_id != req.account!.id) {
-      throw new appError("Invalid credentials", 401);
-    }
-    await postRepository.editComment(comment_id, body);
-
-    return res.status(200).json({
-      success: true,
-    });
-  }
-);
-
-export const likeEntity = asyncWrapper(
-  async (req: Request, res: Response) => {
-    const { entity_id } = req.params;
-    let status = 201;
-
-    try {
-      await postRepository.createLike(req.account!.id, entity_id);
-    } catch (err: unknown) {
-      if ((err as appError).code === "23503") {
-        throw new appError("Post not found", 404);
-      }
-      await postRepository.deleteLike(req.account!.id, entity_id);
-      status = 200;
-    }
-
-    return res.status(status).json({
-      success: true,
-    });
-  }
-);
+  return res.status(status).json({
+    success: true,
+  });
+});
 
 export const bookmarkEntity = asyncWrapper(
   async (req: Request, res: Response) => {
@@ -206,3 +173,31 @@ export const getNextComments = asyncWrapper(
     });
   }
 );
+
+export const deleteEntity = asyncWrapper(
+  async (req: Request, res: Response) => {
+    const { entity_id } = req.params;
+
+    await postRepository.deleteEntity(entity_id);
+
+    return res.status(200).json({
+      success: true,
+    });
+  }
+);
+
+export const getReplies = asyncWrapper(async (req: Request, res: Response) => {
+  const { comment_id } = req.params;
+  const cursor = req.query.cursor as string;
+
+  const replies = await postRepository.getReplies(
+    req.account!.id,
+    comment_id,
+    cursor
+  );
+
+  return res.status(200).json({
+    success: true,
+    replies: replies.reverse(),
+  });
+});

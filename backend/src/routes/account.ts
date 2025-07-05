@@ -9,6 +9,7 @@ import {
   deleteMessage,
   isUsernameAvailable,
   isEmailAvailable,
+  followAccount,
 } from "../controllers/account.js";
 import express, { Router } from "express";
 import validateSession from "../utils/validateSession.js";
@@ -21,7 +22,7 @@ router
 router.get("/:account_id/posts", validateSession, getNextAccountPosts);
 router.get("/:account_id/bookmarked", validateSession, getNextBookmarkedPosts);
 router.get("/:account_id/liked", validateSession, getNextLikedPosts);
-router.post("/:account_id/follow");
+router.post("/:account_id/follow", validateSession, followAccount);
 router.route("/:account_id/messages").get(validateSession, getMessages);
 router
   .route("/messages/:message_id")
@@ -29,4 +30,5 @@ router
   .delete(validateSession, deleteMessage);
 router.post("/is-username-available", isUsernameAvailable);
 router.post("/is-email-available", isEmailAvailable);
+
 export default router;
