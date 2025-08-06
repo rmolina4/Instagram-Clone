@@ -187,3 +187,14 @@ export const uploadAvatar = asyncWrapper(
     });
   }
 );
+
+export const getUsernames = asyncWrapper(
+  async (req: Request, res: Response) => {
+    const prefix = req.query.prefix as string;
+    const users = await accountRepository.getUsernames(prefix);
+    return res.status(200).json({
+      success: true,
+      users,
+    });
+  }
+);

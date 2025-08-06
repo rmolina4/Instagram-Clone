@@ -5,16 +5,11 @@
 
 import type { ColumnType } from "kysely";
 
-export type Generated<T> =
-  T extends ColumnType<infer S, infer I, infer U>
-    ? ColumnType<S, I | undefined, U>
-    : ColumnType<T, T | undefined, T>;
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
 
-export type Int8 = ColumnType<
-  string,
-  bigint | number | string,
-  bigint | number | string
->;
+export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
@@ -74,13 +69,23 @@ export interface Post {
   account_id: Int8;
   body: string | null;
   created_at: Generated<Timestamp | null>;
+  disable_comments: Generated<boolean>;
   entity_id: Int8;
+  hide_metrics: Generated<boolean>;
   id: Generated<Int8>;
+  location: string | null;
+}
+
+export interface PostCollaborators {
+  account_id: Int8;
+  id: Generated<Int8>;
+  post_id: Int8;
 }
 
 export interface PostMedia {
   id: Generated<Int8>;
   media_url: string;
+  mime_type: string;
   post_id: Int8;
 }
 
@@ -108,6 +113,7 @@ export interface DB {
   liked_entity: LikedEntity;
   message: Message;
   post: Post;
+  post_collaborators: PostCollaborators;
   post_media: PostMedia;
   profile: Profile;
   session: Session;

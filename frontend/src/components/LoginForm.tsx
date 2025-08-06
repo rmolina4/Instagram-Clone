@@ -27,17 +27,14 @@ export default function LoginForm() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     const data = await safeFetch<APIResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/login`,
       {
         method: "POST",
-        body: JSON.stringify({
-          identifier: formData.identifier,
-          password: formData.password,
-        }),
+        body: JSON.stringify(formData),
         headers: {
           "Content-Type": "application/json",
         },
@@ -53,7 +50,7 @@ export default function LoginForm() {
 
   return (
     <div className="flex flex-col w-full mt-6">
-      <form className="flex flex-col gap-2 px-10" onSubmit={onSubmit}>
+      <form className="flex flex-col gap-2 px-10" onSubmit={onLogin}>
         <Input
           placeholder="Mobile Number or Email"
           value={formData.identifier}
@@ -89,12 +86,7 @@ export default function LoginForm() {
         )}
       </form>
       <Divider className="mt-[14px] mb-[22px] mx-10" />
-      <button
-        className="w-full flex gap-2 text-blue-500 hover:cursor-pointer mt-2 mb-2 items-center justify-center rounded-lg"
-        onClick={(e) => {
-          e.preventDefault();
-        }}
-      >
+      <button className="w-full flex gap-2 text-blue-500 hover:cursor-pointer mt-2 mb-2 items-center justify-center rounded-lg">
         <FaGoogle />
         Log in with Google
       </button>

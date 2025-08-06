@@ -37,7 +37,7 @@ export default function SignupForm() {
       setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     const data = await safeFetch<APIResponse>(
@@ -66,18 +66,13 @@ export default function SignupForm() {
   return (
     <div className="flex flex-col w-full">
       <div className="mx-10 mt-2 mb-2">
-        <button
-          className="w-full flex gap-2 bg-blue-500 text-white hover:cursor-pointer hover:bg-blue-600 p-1 items-center justify-center rounded-lg"
-          onClick={(e) => {
-            e.preventDefault();
-          }}
-        >
+        <button className="w-full flex gap-2 bg-blue-500 text-white hover:cursor-pointer hover:bg-blue-600 p-1 items-center justify-center rounded-lg">
           <FaGoogle />
           Log in with Google
         </button>
       </div>
       <Divider className="mt-[10px] mb-[18px] mx-10" />
-      <form className="flex flex-col gap-2 px-10" onSubmit={onSubmit}>
+      <form className="flex flex-col gap-2 px-10" onSubmit={onSignup}>
         <Input
           placeholder="Mobile Number or Email"
           value={formData.email}

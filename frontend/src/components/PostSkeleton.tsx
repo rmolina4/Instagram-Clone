@@ -67,25 +67,6 @@ export default function PostSkeleton(props: PostProps) {
             }}
           />
         )}
-        {props.comments
-          .filter((comment) => comment.parent_id === null && comment.is_owner)
-          .slice(-2)
-          .map((comment) => (
-            <div className="flex gap-1" key={comment.id}>
-              <div
-                className="h-4 bg-gray-200 rounded"
-                style={{
-                  width: `${estimateTextWidth(comment.username, 14)}px`,
-                }}
-              />
-              {comment.body && (
-                <div
-                  className="h-4 bg-gray-200 rounded"
-                  style={{ width: `${estimateTextWidth(comment.body, 14)}px` }}
-                />
-              )}
-            </div>
-          ))}
         <div
           className="h-4 bg-gray-200 rounded"
           style={{ width: `${estimateTextWidth("Add a comment...", 14)}px` }}

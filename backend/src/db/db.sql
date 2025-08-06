@@ -55,15 +55,29 @@ CREATE TABLE post (
     entity_id BIGINT NOT NULL UNIQUE,
     body VARCHAR(300),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    location VARCHAR(255),
+    hide_metrics BOOLEAN DEFAULT FALSE,
+    disable_comments BOOLEAN DEFAULT FALSE,
     PRIMARY KEY(id),
     FOREIGN KEY(account_id) REFERENCES account(id) ON DELETE CASCADE,
     FOREIGN KEY(entity_id) REFERENCES entity(id) ON DELETE CASCADE
+);
+
+CREATE TABLE post_collaborators (
+    id BIGSERIAL,
+    post_id BIGINT NOT NULL,
+    account_id BIGINT NOT NULL,
+    PRIMARY KEY(id),
+    FOREIGN KEY(post_id) REFERENCES post(id) ON DELETE CASCADE,
+    FOREIGN KEY(account_id) REFERENCES account(id) ON DELETE CASCADE,
+    UNIQUE(post_id, account_id)
 );
 
 CREATE TABLE post_media (
     id BIGSERIAL,
     post_id BIGINT NOT NULL,
     media_url VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(255) NOT NULL,
     PRIMARY KEY(id),
     FOREIGN KEY(post_id) REFERENCES post(id) ON DELETE CASCADE
 );

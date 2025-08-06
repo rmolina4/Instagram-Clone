@@ -32,8 +32,7 @@ export default function PostView(props: PostProps) {
   });
   const { setError } = useApp();
 
-  const handleFollow = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
+  const handleFollow = async () => {
     const data = await safeFetch<APIResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/user/${props.account_id}/follow`,
       { method: "POST", credentials: "include" }
@@ -50,10 +49,10 @@ export default function PostView(props: PostProps) {
   return (
     <>
       <div className="relative h-[585px] aspect-[4/3]">
-        {props.media_urls.map((url, index) => (
+        {props.media.map((media, index) => (
           <Image
             key={index}
-            src={url}
+            src={media.media_url}
             alt="post"
             fill
             className={`object-cover ${index == interactionState.position ? "opacity-100" : "opacity-0"}`}
@@ -62,13 +61,11 @@ export default function PostView(props: PostProps) {
         {interactionState.position > 0 && (
           <button
             className="absolute top-1/2 left-3 transform -translate-y-1/2 hover:cursor-pointer opacity-80"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setInteractionState((prev) => ({
                 ...prev,
                 position:
-                  (prev.position - 1 + props.media_urls.length) %
-                  props.media_urls.length,
+                  (prev.position - 1 + props.media.length) % props.media.length,
               }));
             }}
           >
@@ -81,14 +78,13 @@ export default function PostView(props: PostProps) {
             />
           </button>
         )}
-        {interactionState.position < props.media_urls.length - 1 && (
+        {interactionState.position < props.media.length - 1 && (
           <button
             className="absolute top-1/2 right-3 transform -translate-y-1/2 hover:cursor-pointer opacity-80"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setInteractionState((prev) => ({
                 ...prev,
-                position: (prev.position + 1) % props.media_urls.length,
+                position: (prev.position + 1) % props.media.length,
               }));
             }}
           >
@@ -101,9 +97,9 @@ export default function PostView(props: PostProps) {
             />
           </button>
         )}
-        {props.media_urls.length > 1 && (
+        {props.media.length > 1 && (
           <div className="absolute bottom-6 flex gap-1 w-full justify-center">
-            {props.media_urls.map((_, index) => (
+            {props.media.map((_, index) => (
               <div
                 key={index}
                 className={`${index == interactionState.position ? "bg-blue-500" : "bg-white"} w-[6px] h-[6px] rounded-full`}
@@ -136,8 +132,7 @@ export default function PostView(props: PostProps) {
         </div>
         <button
           className="ml-auto hover:cursor-pointer"
-          onClick={(e) => {
-            e.preventDefault();
+          onClick={() => {
             setInteractionState((prev) => ({
               ...prev,
               optionsVisible: true,

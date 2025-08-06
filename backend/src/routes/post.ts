@@ -18,7 +18,7 @@ import multer from "multer";
 const router: Router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post("/", validateSession, upload.array("media"), createPost);
+router.post("/", validateSession, upload.array("files"), createPost);
 router.get("/next", validateSession, getNextPosts);
 router
   .route("/:post_id")

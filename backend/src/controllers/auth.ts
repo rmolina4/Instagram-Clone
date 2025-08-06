@@ -88,6 +88,6 @@ export const createSession = async (account_id: string, res: Response) => {
 export const me = asyncWrapper(async (req: Request, res: Response) => {
   return res.status(200).json({
     success: true,
-    account: req.account,
+    user: req.account,
   });
 });

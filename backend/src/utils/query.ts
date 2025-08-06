@@ -16,11 +16,7 @@ export function getPostComments(
           eb.and([
             eb("comment.post_id", "=", post_id),
             eb("comment.parent_id", "is", null),
-            eb(
-              "comment.created_at",
-              ">",
-              cursor == undefined ? new Date(0) : new Date(cursor)
-            ),
+            eb("comment.id", ">", cursor == undefined ? "-1" : cursor),
           ])
         )
         .union(
@@ -37,13 +33,11 @@ export function getPostComments(
     .selectAll("comment")
     .select((eb) => [
       "account.username",
-      eb.cast(eb.fn.count("liked_entity.id"), "integer").as("like_count"),
       eb
-        .case()
-        .when(eb.ref("liked_entity.account_id"), "=", account_id)
-        .then(true)
-        .else(false)
-        .end()
+        .cast(eb.fn.countAll("liked_entity").distinct(), "integer")
+        .as("like_count"),
+      eb.fn
+        .agg("bool_or", [eb("liked_entity.account_id", "=", account_id)])
         .as("liked_by_me"),
       eb("account.id", "=", account_id).as("is_owner"),
       eb(eb.cast(eb.fn.count("comment_chain.id"), "integer"), "-", "1").as(

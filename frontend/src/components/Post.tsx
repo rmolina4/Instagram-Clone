@@ -1,15 +1,22 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import {
+  useState,
+  useRef,
+  createContext,
+  Dispatch,
+  SetStateAction,
+  RefObject,
+  useContext,
+} from "react";
 import Link from "next/link";
 import { timeAgo } from "../utils/time";
-import Loader from "./Loader";
 import Comment from "./Comment";
 import safeFetch from "@/utils/safeFetch";
 import {
   APIResponse,
-  CreateCommentResponse,
+  CreateResourceResponse,
   Post as PostProps,
   Comment as CommentType,
 } from "@/utils/types";
@@ -17,11 +24,14 @@ import PostModal from "./PostModal";
 import { useApp } from "@/utils/AppProvider";
 import OptionsMenu, { OptionsMenuItem } from "./OptionsMenu";
 import PostCarousel from "./PostCarousel";
+import { Emoji } from "./Emoji";
+import { motion } from "motion/react";
 
 import { HiDotsHorizontal } from "react-icons/hi";
 import { IoMdHeart, IoMdHeartEmpty } from "react-icons/io";
 import { AiOutlineMessage } from "react-icons/ai";
 import { IoBookmarkOutline, IoBookmark } from "react-icons/io5";
+import { MdOutlineEmojiEmotions } from "react-icons/md";
 
 export interface CommentFormData {
   body: string;
@@ -38,7 +48,54 @@ export interface InteractionState {
   optionsVisible: boolean;
   postModalVisible: boolean;
   followOptionVisible: boolean;
-  isLoading: boolean;
+  emojiPickerVisible: boolean;
+}
+
+interface PostContextType {
+  interactionState: InteractionState;
+  setInteractionState: Dispatch<SetStateAction<InteractionState>>;
+  formData: CommentFormData;
+  setFormData: Dispatch<SetStateAction<CommentFormData>>;
+  comments: CommentType[];
+  setComments: Dispatch<SetStateAction<CommentType[]>>;
+  showFollowingBtn: RefObject<boolean>;
+  handleLike: () => void;
+  handleBookmark: () => void;
+  handleDelete: () => void;
+  handleFollow: () => void;
+  handleCreateComment: (e: React.FormEvent<HTMLFormElement>) => void;
+}
+
+const PostContext = createContext<PostContextType>({
+  interactionState: {
+    isLiked: false,
+    isBookmarked: false,
+    likeCount: 0,
+    position: 0,
+    isFollowing: false,
+    optionsVisible: false,
+    postModalVisible: false,
+    followOptionVisible: false,
+    emojiPickerVisible: false,
+  },
+  setInteractionState: () => {},
+  formData: {
+    body: "",
+    parent_id: "",
+  },
+  setFormData: () => {},
+  comments: [],
+  setComments: () => {},
+  showFollowingBtn: { current: false },
+  handleLike: () => {},
+  handleBookmark: () => {},
+  handleDelete: () => {},
+  handleFollow: () => {},
+  handleCreateComment: () => {},
+});
+
+export function usePost() {
+  return useContext(PostContext);
 }
 
 export default function Post(props: PostProps) {
@@ -51,13 +108,13 @@ export default function Post(props: PostProps) {
     optionsVisible: false,
     postModalVisible: false,
     followOptionVisible: false,
-    isLoading: false,
+    emojiPickerVisible: false,
   });
   const [formData, setFormData] = useState<CommentFormData>({
     body: "",
     parent_id: "",
   });
-  const { posts, setPosts, setError } = useApp();
+  const { posts, setPosts, setError, user } = useApp();
   const [comments, setComments] = useState<CommentType[]>(
     props.comments.map((comment) => ({
       ...comment,
@@ -65,22 +122,32 @@ export default function Post(props: PostProps) {
   );
   const showFollowingBtn = useRef<boolean>(false);
 
-  useEffect(() => {
-    if (interactionState.postModalVisible) {
-      window.history.pushState(null, "", `/p/${props.id}`);
-    } else {
-      window.history.pushState(null, "", `/`);
-    }
-  }, [props.id, interactionState.postModalVisible]);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateComment = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setInteractionState((prev) => ({
-      ...prev,
-      isLoading: true,
-    }));
-    if (!props.id) return;
-    const data = await safeFetch<CreateCommentResponse>(
+    const optimisticComment = {
+      id: crypto.randomUUID(),
+      body: formData.body,
+      username: user.username,
+      created_at: new Date().toISOString(),
+      entity_id: crypto.randomUUID(),
+      like_count: 0,
+      liked_by_me: false,
+      is_owner: true,
+      parent_id: formData.parent_id === "" ? null : formData.parent_id,
+      reply_count: 0,
+      root_id: formData.root_id,
+      recent: true,
+    };
+    setComments((prev) => [...prev, optimisticComment]);
+    setPosts(
+      posts.map((post) =>
+        post.id === props.id
+          ? { ...post, comment_count: post.comment_count + 1 }
+          : post
+      )
+    );
+
+    const data = await safeFetch<CreateResourceResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/post/${props.id}`,
       {
         method: "POST",
@@ -95,27 +162,33 @@ export default function Post(props: PostProps) {
       }
     );
     if (!data.success) {
-      return setError({ message: data.message, status: data.status });
+      setComments((prev) =>
+        prev.filter((comment) => comment.id !== optimisticComment.id)
+      );
+      setPosts(
+        posts.map((post) =>
+          post.id === props.id
+            ? { ...post, comment_count: post.comment_count - 1 }
+            : post
+        )
+      );
     }
-    setComments((prev) => [
-      ...prev,
-      { ...data.comment, root_id: formData.root_id },
-    ]);
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment.id === optimisticComment.id
+          ? { ...comment, id: data.id, entity_id: data.entity_id }
+          : comment
+      )
+    );
     setFormData({ body: "", parent_id: "" });
-    setInteractionState((prev) => ({
-      ...prev,
-      isLoading: false,
-    }));
   };
 
-  const handleLike = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
+  const handleLike = async () => {
     setInteractionState((prev) => ({
       ...prev,
       likeCount: prev.isLiked ? prev.likeCount - 1 : prev.likeCount + 1,
       isLiked: !prev.isLiked,
     }));
-    if (!props.id) return;
     const data = await safeFetch<APIResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/post/${props.entity_id}/action`,
       {
@@ -123,9 +196,12 @@ export default function Post(props: PostProps) {
         credentials: "include",
       }
     );
-    if (!data.success) {
-      return setError({ message: data.message, status: data.status });
-    }
+    if (data.success) return;
+    setInteractionState((prev) => ({
+      ...prev,
+      isLiked: !prev.isLiked,
+      likeCount: prev.isLiked ? prev.likeCount - 1 : prev.likeCount + 1,
+    }));
   };
 
   const handleBookmark = async () => {
@@ -134,7 +210,6 @@ export default function Post(props: PostProps) {
       optionsVisible: false,
       isBookmarked: !prev.isBookmarked,
     }));
-    if (!props.id) return;
     const data = await safeFetch<APIResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/post/${props.entity_id}/action`,
       {
@@ -142,9 +217,11 @@ export default function Post(props: PostProps) {
         credentials: "include",
       }
     );
-    if (!data.success) {
-      return setError({ message: data.message, status: data.status });
-    }
+    if (data.success) return;
+    setInteractionState((prev) => ({
+      ...prev,
+      isBookmarked: !prev.isBookmarked,
+    }));
   };
 
   const handleDelete = async () => {
@@ -166,11 +243,7 @@ export default function Post(props: PostProps) {
     }
   };
 
-  const handleFollow = async (key?: keyof InteractionState) => {
-    setInteractionState((prev) => ({
-      ...prev,
-      [key ?? "optionsVisible"]: false,
-    }));
+  const handleFollow = async () => {
     const data = await safeFetch<APIResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/user/${props.account_id}/follow`,
       { method: "POST", credentials: "include" }
@@ -186,7 +259,22 @@ export default function Post(props: PostProps) {
   };
 
   return (
-    <>
+    <PostContext.Provider
+      value={{
+        interactionState,
+        setInteractionState,
+        formData,
+        setFormData,
+        comments,
+        setComments,
+        showFollowingBtn,
+        handleLike,
+        handleBookmark,
+        handleDelete,
+        handleFollow,
+        handleCreateComment,
+      }}
+    >
       <div className="w-[468px] flex flex-col gap-1 text-sm">
         <div className="flex items-center gap-2">
           <Image
@@ -195,24 +283,21 @@ export default function Post(props: PostProps) {
             width={30}
             height={30}
             unoptimized
-            className="rounded-full w-[30px] h-[30px]"
+            className="rounded-full w-[30px] h-[30px] hover:cursor-pointer"
           />
           <div className="flex gap-1">
             <Link href={`/${props.username}`} className="font-bold">
               {props.username}
             </Link>
             &#x2022;
-            <Link href={`/${props.username}`} className="text-gray-500">
+            <Link href={`/p/${props.id}`} className="text-gray-500">
               {timeAgo(props.created_at)}
             </Link>
           </div>
           {!interactionState.isFollowing && !props.is_owner && (
             <button
               className="text-blue-500 hover:cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                handleFollow();
-              }}
+              onClick={handleFollow}
             >
               Follow
             </button>
@@ -220,8 +305,7 @@ export default function Post(props: PostProps) {
           {interactionState.isFollowing && showFollowingBtn.current && (
             <button
               className="text-blue-500 hover:cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 setInteractionState((prev) => ({
                   ...prev,
                   followOptionVisible: true,
@@ -233,8 +317,7 @@ export default function Post(props: PostProps) {
           )}
           <button
             className="ml-auto hover:cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setInteractionState((prev) => ({
                 ...prev,
                 optionsVisible: true,
@@ -245,29 +328,36 @@ export default function Post(props: PostProps) {
           </button>
         </div>
         <PostCarousel
-          media_urls={props.media_urls}
+          media={props.media}
           className="w-full h-[585px]"
+          position={interactionState.position}
+          setPosition={(position: number) => {
+            setInteractionState((prev) => ({
+              ...prev,
+              position,
+            }));
+          }}
         />
         <div className="w-full flex gap-3 items-center">
-          <button className="flex hover:cursor-pointer" onClick={handleLike}>
-            <span className="relative inline-block w-[25px] h-[25px]">
-              <IoMdHeart
-                className={`${interactionState.isLiked ? "opacity-100 scale-100" : "opacity-0 scale-0"} transition-[scale] duration-300 absolute`}
-                size={25}
-                color="red"
-              />
-              <IoMdHeartEmpty
-                className={`${interactionState.isLiked ? "opacity-0 scale-0" : "opacity-100 scale-100"} transition-[scale] duration-300 absolute`}
-                size={25}
-              />
-            </span>
+          <button className="hover:cursor-pointer" onClick={handleLike}>
+            <motion.div
+              initial={{ scale: 1 }}
+              whileTap={{ scale: [1, 1.4, 1] }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              {interactionState.isLiked ? (
+                <IoMdHeart size={25} color="red" />
+              ) : (
+                <IoMdHeartEmpty size={25} />
+              )}
+            </motion.div>
           </button>
           <button
             className="hover:cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setInteractionState((prev) => ({
                 ...prev,
+                emojiPickerVisible: false,
                 postModalVisible: true,
               }));
             }}
@@ -298,26 +388,28 @@ export default function Post(props: PostProps) {
           <div>
             <button
               className="text-gray-500 hover:cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 setInteractionState((prev) => ({
                   ...prev,
                   postModalVisible: true,
                 }));
               }}
             >
-              View all {comments.length} comments
+              View all {props.comment_count} comments
             </button>
           </div>
         )}
         {comments
-          .filter((comment) => comment.parent_id === null && comment.is_owner)
+          .filter(
+            (comment) =>
+              comment.parent_id === null && comment.is_owner && comment.recent
+          )
           .slice(-2)
           .map((comment) => (
             <Comment key={comment.id} {...comment} isModal={false} />
           ))}
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleCreateComment}
           className="flex items-center justify-between p-0"
         >
           <input
@@ -326,67 +418,75 @@ export default function Post(props: PostProps) {
             type="text"
             value={formData.body}
             onChange={(e) => {
-              e.preventDefault();
               setFormData({ ...formData, body: e.target.value });
             }}
             placeholder="Add a comment..."
           />
-          {interactionState.isLoading ? (
-            <Loader />
-          ) : (
-            formData.body.length > 0 && (
+          <div className="flex items-center gap-2">
+            {formData.body.length > 0 && (
               <button
                 type="submit"
                 className="text-blue-500 hover:cursor-pointer"
               >
                 Post
               </button>
-            )
-          )}
+            )}
+            <button
+              className="relative hover:cursor-pointer"
+              onClick={() => {
+                setInteractionState((prev) => ({
+                  ...prev,
+                  emojiPickerVisible: !prev.emojiPickerVisible,
+                }));
+              }}
+            >
+              <MdOutlineEmojiEmotions size={18} />
+              {interactionState.emojiPickerVisible && (
+                <Emoji
+                  setBody={(emoji) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      body: prev.body + emoji,
+                    }));
+                  }}
+                  className="z-2 bottom-[40px] left-[-160px] md:left-[-180px] lg:left-[0px]"
+                />
+              )}
+            </button>
+          </div>
         </form>
       </div>
-      {interactionState.postModalVisible && (
-        <PostModal
-          {...props}
-          handleLike={handleLike}
-          handleBookmark={handleBookmark}
-          handleSubmit={handleSubmit}
-          formData={formData}
-          setFormData={setFormData}
-          handleFollow={handleFollow}
-          comments={comments}
-          setComments={setComments}
-          interactionState={interactionState}
-          setInteractionState={setInteractionState}
-          showFollowingBtn={showFollowingBtn}
-        />
-      )}
+      {interactionState.postModalVisible && <PostModal {...props} />}
       {interactionState.optionsVisible && (
         <OptionsMenu
-          setInteractionState={setInteractionState}
+          setOptionsVisible={(visible) =>
+            setInteractionState((prev) => ({
+              ...prev,
+              optionsVisible: visible,
+            }))
+          }
           items={
             [
               props.is_owner
                 ? {
                     label: "Delete",
-                    onClick: () => handleDelete(),
+                    onClick: handleDelete,
                     red: true,
                   }
                 : {
                     label: "Report",
-                    onClick: () => {},
                     red: true,
                   },
               interactionState.isFollowing && {
                 label: "Unfollow",
-                onClick: () => handleFollow(),
+                onClick: handleFollow,
                 red: true,
               },
               {
                 label: interactionState.isBookmarked
                   ? "Remove from favorites"
                   : "Add to favorites",
-                onClick: () => handleBookmark(),
+                onClick: handleBookmark,
               },
               {
                 label: "Go to post",
@@ -400,37 +500,31 @@ export default function Post(props: PostProps) {
               },
               {
                 label: "Cancel",
-                onClick: () =>
-                  setInteractionState((prev) => ({
-                    ...prev,
-                    optionsVisible: false,
-                  })),
               },
             ].filter(Boolean) as OptionsMenuItem[]
           }
         />
       )}
       {interactionState.followOptionVisible && (
-        <OptionsMenu<InteractionState>
-          setInteractionState={setInteractionState}
+        <OptionsMenu
+          setOptionsVisible={(visible) =>
+            setInteractionState((prev) => ({
+              ...prev,
+              followOptionVisible: visible,
+            }))
+          }
           items={[
             {
               label: "Unfollow",
-              onClick: () => handleFollow("followOptionVisible"),
+              onClick: handleFollow,
               red: true,
             },
             {
               label: "Cancel",
-              onClick: () =>
-                setInteractionState((prev) => ({
-                  ...prev,
-                  followOptionVisible: false,
-                })),
             },
           ]}
-          field={"followOptionVisible"}
         />
       )}
-    </>
+    </PostContext.Provider>
   );
 }

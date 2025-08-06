@@ -18,8 +18,8 @@ interface InputProps {
 
 export default function Input({
   placeholder,
-  value: externalValue,
-  setValue: setExternalValue,
+  value,
+  setValue,
   validate,
   showError,
   isPrivate,
@@ -33,17 +33,17 @@ export default function Input({
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    setExternalValue(e.target.value);
+    setValue(e.target.value);
     setIsTouched(true);
     setIsBlurred(false);
   };
 
   const handleBlur = async () => {
     if (!isTouched) return;
-    if (!validate) return setIsBlurred(true);
-    const result = await validate();
-    setError(result.success ? null : result.message);
+    if (validate) {
+      const result = await validate();
+      setError(result.success ? null : result.message);
+    }
     setIsBlurred(true);
   };
 
@@ -56,7 +56,7 @@ export default function Input({
       >
         <input
           type={showValue ? "text" : "password"}
-          value={externalValue}
+          value={value}
           placeholder={placeholder}
           onChange={handleChange}
           onBlur={handleBlur}
@@ -69,28 +69,15 @@ export default function Input({
         {showError && !error && isBlurred && (
           <FaRegCircleCheck className="text-gray-500" />
         )}
-        {isPrivate && !showValue && externalValue && (
+        {isPrivate && (
           <button
+            type="button"
             className="hover:cursor-pointer"
-            key="show"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setShowValue(true);
+            onClick={() => {
+              setShowValue(!showValue);
             }}
           >
-            Show
-          </button>
-        )}
-        {isPrivate && showValue && externalValue && (
-          <button
-            className="hover:cursor-pointer"
-            key="hide"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setShowValue(false);
-            }}
-          >
-            Hide
+            {showValue ? "Hide" : "Show"}
           </button>
         )}
       </div>

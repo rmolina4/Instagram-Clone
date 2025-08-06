@@ -1,9 +1,5 @@
-import { Dispatch, SetStateAction } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
-
-interface InteractionState {
-  optionsVisible: boolean;
-}
 
 export interface OptionsMenuItem {
   label: string;
@@ -13,28 +9,31 @@ export interface OptionsMenuItem {
   red?: boolean;
 }
 
-export default function OptionsMenu<T extends InteractionState>({
-  setInteractionState,
+export default function OptionsMenu({
   items,
-  field,
+  setOptionsVisible,
 }: {
-  setInteractionState: Dispatch<SetStateAction<T>>;
   items: OptionsMenuItem[];
-  field?: keyof T;
+  setOptionsVisible: (visible: boolean) => void;
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "scroll";
+    };
+  }, []);
+
   return (
     <>
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 opacity-60 z-3"
-        onClick={(e) => {
-          e.preventDefault();
-          setInteractionState((prev) => ({
-            ...prev,
-            [field ?? "optionsVisible"]: false,
-          }));
+        className={`fixed inset-0 bg-black opacity-60 z-4`}
+        onClick={() => {
+          setOptionsVisible(false);
         }}
       ></div>
-      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-neutral-800 shadow-md w-[400px] rounded-xl flex flex-col z-3 text-sm">
+      <div
+        className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-neutral-800 shadow-md w-[400px] rounded-xl flex flex-col text-sm z-4`}
+      >
         {items.map((item, index) =>
           item.isLink ? (
             <Link
@@ -47,8 +46,8 @@ export default function OptionsMenu<T extends InteractionState>({
           ) : (
             <button
               key={item.label}
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
+                setOptionsVisible(false);
                 item.onClick?.();
               }}
               className={`w-full p-3 hover:cursor-pointer dark:border-neutral-700 ${

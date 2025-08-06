@@ -4,10 +4,10 @@ import { useApp } from "@/utils/AppProvider";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function Sidebar() {
+export default function SuggestionsBar() {
   const { user } = useApp();
   return (
-    <div className="flex flex-col mt-9 pl-16 hidden lg:block">
+    <div className="mt-9 pl-16 hidden lg:flex flex-col">
       <div className="flex items-center gap-2 w-[320px] px-4">
         <Link href={`/${user.username}`}>
           <Image

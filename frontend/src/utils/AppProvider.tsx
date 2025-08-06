@@ -1,10 +1,9 @@
 "use client";
 
-import { Post, Account, Profile } from "@/utils/types";
+import { Post, User, Profile } from "@/utils/types";
 import {
   createContext,
   useState,
-  useOptimistic,
   Dispatch,
   SetStateAction,
   useContext,
@@ -12,11 +11,9 @@ import {
 
 interface AppContextType {
   posts: Post[];
-  optimisticPosts: Post[];
   setPosts: Dispatch<SetStateAction<Post[]>>;
-  setOptimisticPosts: Dispatch<SetStateAction<Post[]>>;
-  user: Account;
-  setUser: Dispatch<SetStateAction<Account>>;
+  user: User;
+  setUser: Dispatch<SetStateAction<User>>;
   profile: Profile | null;
   setProfile: Dispatch<SetStateAction<Profile | null>>;
   error: { message: string; status: number } | null;
@@ -25,11 +22,9 @@ interface AppContextType {
   >;
 }
 
-export const AppContext = createContext<AppContextType>({
+const AppContext = createContext<AppContextType>({
   posts: [],
-  optimisticPosts: [],
   setPosts: () => {},
-  setOptimisticPosts: () => {},
   user: {
     username: "",
     name: "",
@@ -43,21 +38,24 @@ export const AppContext = createContext<AppContextType>({
   setError: () => {},
 });
 
+export function useApp() {
+  return useContext(AppContext);
+}
+
 export default function AppProvider({
   children,
   user: initialUser,
 }: {
   children: React.ReactNode;
-  user: Account;
+  user: User;
 }) {
-  const [user, setUser] = useState<Account>(initialUser);
+  const [user, setUser] = useState<User>(initialUser);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<{
     message: string;
     status: number;
   } | null>(null);
-  const [optimisticPosts, setOptimisticPosts] = useOptimistic<Post[]>(posts);
 
   return (
     <AppContext.Provider
@@ -65,9 +63,7 @@ export default function AppProvider({
         user,
         profile,
         posts,
-        optimisticPosts,
         setPosts,
-        setOptimisticPosts,
         setUser,
         setProfile,
         error,
@@ -77,8 +73,4 @@ export default function AppProvider({
       {children}
     </AppContext.Provider>
   );
-}
-
-export function useApp() {
-  return useContext(AppContext);
 }

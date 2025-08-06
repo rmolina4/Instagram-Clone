@@ -2,7 +2,7 @@ import { supabase } from "../db/db.js";
 import appError from "./appError.js";
 
 export const createPost = async (media: Express.Multer.File[], id: string) => {
-  const media_urls = [];
+  const media_urls: { media_url: string; mime_type: string }[] = [];
 
   for (const [index, file] of media.entries()) {
     const { error } = await supabase.storage
@@ -13,9 +13,10 @@ export const createPost = async (media: Express.Multer.File[], id: string) => {
     if (error) {
       throw new appError("Failed to upload media", 500);
     }
-    media_urls.push(
-      `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET_NAME}/posts/${id}/${index}`
-    );
+    media_urls.push({
+      media_url: `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET_NAME}/posts/${id}/${index}`,
+      mime_type: file.mimetype,
+    });
   }
   return media_urls;
 };

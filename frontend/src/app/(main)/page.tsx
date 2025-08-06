@@ -1,4 +1,4 @@
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/SuggestionsBar";
 import Story from "@/components/Story";
 import Posts from "@/components/Posts";
 import { getPosts } from "@/utils/getData";

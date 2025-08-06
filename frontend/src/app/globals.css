@@ -22,5 +22,37 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Helvetica", sans-serif;
+  font-family:
+    -apple-system, "system-ui", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+input[type="range"].custom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  background-color: var(--background-color, #d1d5db);
+  border-radius: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  input[type="range"].custom-slider {
+    background-color: #4b5563;
+  }
+}
+
+input[type="range"].custom-slider:hover {
+  cursor: pointer;
+}
+
+input[type="range"].custom-slider:focus {
+  outline: none;
+}
+
+input[type="range"].custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background-color: var(--thumb-color, #000);
+  border-radius: 50%;
 }

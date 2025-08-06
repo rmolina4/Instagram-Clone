@@ -24,7 +24,7 @@ export const getUser = async () => {
       },
     }
   );
-  return data.account;
+  return data.user;
 };
 
 export const getPosts = async () => {

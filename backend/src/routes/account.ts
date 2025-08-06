@@ -10,6 +10,7 @@ import {
   isUsernameAvailable,
   isEmailAvailable,
   followAccount,
+  getUsernames,
 } from "../controllers/account.js";
 import express, { Router } from "express";
 import validateSession from "../utils/validateSession.js";
@@ -30,5 +31,6 @@ router
   .delete(validateSession, deleteMessage);
 router.post("/is-username-available", isUsernameAvailable);
 router.post("/is-email-available", isEmailAvailable);
+router.get("/search", validateSession, getUsernames);
 
 export default router;

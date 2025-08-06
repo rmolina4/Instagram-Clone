@@ -2,31 +2,25 @@
 
 import Link from "next/link";
 import { Comment as CommentType, GetRepliesResponse } from "@/utils/types";
-import { Dispatch, SetStateAction, useState, useEffect } from "react";
+import { useState, Fragment } from "react";
 import Image from "next/image";
 import { timeAgo } from "../utils/time";
 import safeFetch from "@/utils/safeFetch";
 import { APIResponse } from "@/utils/types";
-import { CommentFormData } from "./Post";
+import { usePost } from "./Post";
 import { useApp } from "@/utils/AppProvider";
 import OptionsMenu from "./OptionsMenu";
+import { AnimatePresence, motion } from "motion/react";
 
 import { HiDotsHorizontal } from "react-icons/hi";
 import { IoMdHeartEmpty, IoMdHeart } from "react-icons/io";
 
 export interface CommentProps extends CommentType {
   isModal?: boolean;
-  setFormData?: (data: CommentFormData) => void;
-  comments?: CommentType[];
-  setComments?: Dispatch<SetStateAction<CommentType[]>>;
 }
 
 interface InteractionState {
-  isLiked: boolean;
-  likeCount: number;
   optionsVisible: boolean;
-  repliesDisplayed: number;
-  repliesLeft: number;
   repliesVisible: boolean;
 }
 
@@ -38,42 +32,38 @@ export default function Comment({
   username,
   created_at,
   entity_id,
-  like_count,
-  liked_by_me,
   isModal,
-  setFormData,
   parent_id,
   root_id,
-  comments,
-  setComments,
+  like_count,
+  liked_by_me,
 }: CommentProps) {
+  const { setFormData, comments, setComments } = usePost();
   const [interactionState, setInteractionState] = useState<InteractionState>({
-    isLiked: liked_by_me,
-    likeCount: like_count,
     optionsVisible: false,
-    repliesDisplayed: 0,
-    repliesLeft: reply_count,
     repliesVisible: false,
   });
-  const [cursor, setCursor] = useState<string | null>(null);
-  const { setError } = useApp();
+  const { setPosts, setError } = useApp();
+  let cursor =
+    comments.filter((c) => c.root_id == id && !c.recent)[0]?.created_at || null;
+  const repliesLeft = reply_count
+    ? reply_count - comments.filter((c) => c.root_id == id && !c.recent).length
+    : 0;
+  const repliesDisplayed = comments.filter((c) => c.root_id == id).length;
 
-  useEffect(() => {
-    if (comments) {
-      setInteractionState((prev) => ({
-        ...prev,
-        repliesDisplayed: comments!.filter((c) => c.root_id == id).length,
-      }));
-    }
-  }, [comments]);
-
-  const handleLike = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    setInteractionState((prev) => ({
-      ...prev,
-      likeCount: prev.isLiked ? prev.likeCount - 1 : prev.likeCount + 1,
-      isLiked: !prev.isLiked,
-    }));
+  const handleLike = async () => {
+    if (!setComments) return;
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              liked_by_me: !c.liked_by_me,
+              like_count: c.liked_by_me ? c.like_count - 1 : c.like_count + 1,
+            }
+          : c
+      )
+    );
     const data = await safeFetch<APIResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/post/${entity_id}/action`,
       {
@@ -81,38 +71,47 @@ export default function Comment({
         credentials: "include",
       }
     );
-    if (!data.success) {
-      return setError({ message: data.message, status: data.status });
-    }
+    if (data.success) return;
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              liked_by_me: !c.liked_by_me,
+              like_count: c.liked_by_me ? c.like_count - 1 : c.like_count + 1,
+            }
+          : c
+      )
+    );
   };
 
   const handleReply = () => {
-    if (setFormData) {
-      setFormData({
-        body: `@${username} `,
-        parent_id: `${id}`,
-        root_id: parent_id === null ? id : root_id,
-      });
-    }
+    setFormData?.({
+      body: `@${username} `,
+      parent_id: `${id}`,
+      root_id: parent_id === null ? id : root_id,
+    });
   };
 
   const handleDelete = async () => {
-    setInteractionState((prev) => ({
-      ...prev,
-      optionsVisible: false,
-    }));
+    if (!setComments) return;
     const data = await safeFetch<APIResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/post/${entity_id}/action`,
       { method: "DELETE", credentials: "include" }
     );
-    if (!data.success) {
+    if (!data.success)
       return setError({ message: data.message, status: data.status });
-    }
-    setComments!((prev) => prev.filter((c) => c.id !== id));
+    setComments((prev) => prev.filter((c) => c.id !== id));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === entity_id ? { ...p, comment_count: p.comment_count - 1 } : p
+      )
+    );
   };
 
   const handleViewReplies = async () => {
-    if (interactionState.repliesLeft > 0) {
+    if (!setComments) return;
+    if (repliesLeft && repliesLeft > 0) {
       const data = await safeFetch<GetRepliesResponse>(
         `${process.env.NEXT_PUBLIC_API_URL}/post/comments/${id}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
         {
@@ -120,21 +119,17 @@ export default function Comment({
           credentials: "include",
         }
       );
-      if (!data.success) {
+      if (!data.success)
         return setError({ message: data.message, status: data.status });
-      } else if (data.replies.length > 0) {
-        setInteractionState((prev) => ({
-          ...prev,
-          repliesLeft: prev.repliesLeft - data.replies.length,
-        }));
-        setComments!((prev) => [
+      if (data.replies.length > 0) {
+        setComments((prev) => [
           ...data.replies.map((reply) => ({
             ...reply,
             root_id: id,
           })),
           ...prev,
         ]);
-        setCursor(data.replies[0].created_at);
+        cursor = data.replies[0].created_at;
         return setInteractionState((prev) => ({
           ...prev,
           repliesVisible: true,
@@ -150,7 +145,7 @@ export default function Comment({
   return (
     <>
       <div
-        className={`flex gap-3 group text-sm ${isModal ? "px-4 py-[6px]" : ""} ${parent_id ? "ml-10" : ""}`}
+        className={`flex gap-3 group text-sm ${isModal ? "px-4 py-[10px]" : ""} ${parent_id ? "ml-10" : ""}`}
       >
         {isModal && (
           <Image
@@ -162,10 +157,10 @@ export default function Comment({
             className="rounded-full w-[30px] h-[30px]"
           />
         )}
-        <div className="flex flex-col gap-1">
-          <p className="break-words flex items-center gap-1">
+        <div className="min-w-0 flex flex-col gap-1">
+          <div className="break-all hyphens-auto items-center">
             <Link href={`/${username}`} className="font-bold">
-              {username}
+              {username}{" "}
             </Link>
             {body?.split(" ").map((word, index) => {
               if (word.startsWith("@")) {
@@ -175,52 +170,59 @@ export default function Comment({
                     href={`/${word.slice(1)}`}
                     key={index}
                   >
-                    {word}
+                    {word}{" "}
                   </Link>
                 );
               }
-              return word;
+              return <Fragment key={index}>{word + " "}</Fragment>;
             })}
-          </p>
+          </div>
           {isModal && (
             <>
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span>{timeAgo(created_at)}</span>
-                {interactionState.likeCount > 0 && (
-                  <span>{interactionState.likeCount} likes</span>
+                {like_count > 0 && (
+                  <AnimatePresence>
+                    <motion.span
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                    >
+                      {like_count} likes
+                    </motion.span>
+                  </AnimatePresence>
                 )}
-                <button onClick={handleReply} className="hover:cursor-pointer">
+                <motion.button
+                  onClick={handleReply}
+                  className="hover:cursor-pointer"
+                  layout
+                >
                   Reply
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={() => {
                     setInteractionState((prev) => ({
                       ...prev,
-                      optionsVisible: !prev.optionsVisible,
+                      optionsVisible: true,
                     }));
                   }}
+                  layout
                 >
                   <HiDotsHorizontal
                     size={15}
                     className="opacity-0 group-hover:opacity-100 hover:cursor-pointer ml-auto"
                   />
-                </button>
+                </motion.button>
               </div>
-              {(interactionState.repliesDisplayed > 0 ||
-                interactionState.repliesLeft > 0) && (
+              {(repliesLeft > 0 || repliesDisplayed > 0) && (
                 <button
                   onClick={handleViewReplies}
                   className="text-xs text-gray-500 hover:cursor-pointer text-left mt-2"
                 >
-                  {interactionState.repliesVisible &&
-                  interactionState.repliesLeft == 0 ? (
+                  {interactionState.repliesVisible && repliesLeft == 0 ? (
                     <span>Hide replies</span>
                   ) : (
                     <span>
-                      View{" "}
-                      {interactionState.repliesLeft > 0
-                        ? interactionState.repliesLeft
-                        : interactionState.repliesDisplayed}{" "}
+                      View {repliesLeft > 0 ? repliesLeft : repliesDisplayed}{" "}
                       replies
                     </span>
                   )}
@@ -233,51 +235,45 @@ export default function Comment({
           className={`hover:cursor-pointer ml-auto ${isModal ? "mb-auto mt-4" : ""}`}
           onClick={handleLike}
         >
-          {interactionState.isLiked ? (
-            <IoMdHeart size={15} />
-          ) : (
-            <IoMdHeartEmpty size={15} />
-          )}
+          <motion.div
+            initial={{ scale: 1 }}
+            whileTap={{ scale: [1, 1.4, 1] }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            {liked_by_me ? (
+              <IoMdHeart size={15} color="red" />
+            ) : (
+              <IoMdHeartEmpty size={15} />
+            )}
+          </motion.div>{" "}
         </button>
       </div>
       {!root_id &&
-        comments &&
         interactionState.repliesVisible &&
         comments
           .filter((c) => c.root_id == id)
-          .map((c) => (
-            <Comment
-              key={c.id}
-              {...c}
-              comments={comments}
-              setComments={setComments}
-              isModal={isModal}
-              setFormData={setFormData}
-            />
-          ))}
+          .map((c) => <Comment key={c.id} {...c} isModal={isModal} />)}
       {interactionState.optionsVisible && (
-        <OptionsMenu<InteractionState>
-          setInteractionState={setInteractionState}
+        <OptionsMenu
+          setOptionsVisible={(visible) =>
+            setInteractionState((prev) => ({
+              ...prev,
+              optionsVisible: visible,
+            }))
+          }
           items={[
             is_owner
               ? {
                   label: "Delete",
-                  onClick: () => handleDelete(),
+                  onClick: handleDelete,
                   red: true,
                 }
               : {
                   label: "Report",
-                  onClick: () => {},
                   red: true,
                 },
             {
               label: "Cancel",
-              onClick: () => {
-                setInteractionState((prev) => ({
-                  ...prev,
-                  optionsVisible: false,
-                }));
-              },
             },
           ]}
         />

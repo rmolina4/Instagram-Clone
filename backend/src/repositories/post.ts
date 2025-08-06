@@ -7,7 +7,6 @@ export const getPost = async (account_id: string, post_id: string) => {
   return await db
     .selectFrom("post")
     .innerJoin("account", "post.account_id", "account.id")
-    .innerJoin("post_media", "post.id", "post_media.post_id")
     .leftJoin("liked_entity", "liked_entity.entity_id", "post.entity_id")
     .leftJoin(
       "bookmarked_entity",
@@ -42,7 +41,12 @@ export const getPost = async (account_id: string, post_id: string) => {
       eb
         .cast(eb.fn.countAll("liked_entity").distinct(), "integer")
         .as("like_count"),
-      eb.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      jsonArrayFrom(
+        eb
+          .selectFrom("post_media")
+          .select(["media_url", "mime_type"])
+          .where("post_media.post_id", "=", eb.ref("post.id"))
+      ).as("media"),
       eb("account.id", "=", account_id).as("is_owner"),
     ])
     .groupBy([
@@ -63,8 +67,8 @@ export const getNextPosts = async (account_id: string, cursor?: string) => {
   return await db
     .selectFrom("post")
     .innerJoin("account", "post.account_id", "account.id")
-    .innerJoin("post_media", "post.id", "post_media.post_id")
     .leftJoin("liked_entity", "liked_entity.entity_id", "post.entity_id")
+    .leftJoin("comment", "comment.post_id", "post.id")
     .leftJoin(
       "bookmarked_entity",
       "bookmarked_entity.entity_id",
@@ -98,8 +102,16 @@ export const getNextPosts = async (account_id: string, cursor?: string) => {
       eb
         .cast(eb.fn.countAll("liked_entity").distinct(), "integer")
         .as("like_count"),
-      eb.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+      jsonArrayFrom(
+        eb
+          .selectFrom("post_media")
+          .select(["media_url", "mime_type"])
+          .where("post_media.post_id", "=", eb.ref("post.id"))
+      ).as("media"),
       eb("account.id", "=", account_id).as("is_owner"),
+      eb
+        .cast(eb.fn.countAll("comment").distinct(), "integer")
+        .as("comment_count"),
     ])
     .groupBy([
       "account.id",
@@ -133,7 +145,10 @@ export const createPost = async (
   trx: Transaction<DB>,
   account_id: string,
   entity_id: string,
-  body: string
+  body: string,
+  location: string,
+  hide_metrics: boolean,
+  disable_comments: boolean
 ) => {
   return await trx
     .insertInto("post")
@@ -141,19 +156,28 @@ export const createPost = async (
       account_id,
       entity_id,
       body,
+      location,
+      hide_metrics,
+      disable_comments,
     })
-    .returningAll()
+    .returning(["id"])
     .executeTakeFirstOrThrow();
 };
 
 export const createPostMedia = async (
   trx: Transaction<DB>,
   post_id: string,
-  media_urls: string[]
+  media: { media_url: string; mime_type: string }[]
 ) => {
   return await trx
     .insertInto("post_media")
-    .values(media_urls.map((media_url) => ({ post_id, media_url })))
+    .values(
+      media.map((m) => ({
+        post_id,
+        media_url: m.media_url,
+        mime_type: m.mime_type,
+      }))
+    )
     .execute();
 };
 
@@ -186,7 +210,7 @@ export const createComment = async (
       parent_id,
       body,
     })
-    .returningAll()
+    .returning(["id"])
     .executeTakeFirstOrThrow();
 };
 

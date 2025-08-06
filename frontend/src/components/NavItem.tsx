@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { NavItem as NavItemType } from "./Navbar";
+import { AnimatePresence, motion } from "motion/react";
 
 const itemStyles =
   "w-full flex items-center hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-lg hover:cursor-pointer";
@@ -19,15 +20,15 @@ export default function NavItem({
   href,
   icon,
   activeIcon,
-  isButton,
+  isLink,
   onClick,
   popupOpen,
   childOpen,
-  alignEnd,
+  className,
 }: NavItemProps) {
   const pathname = usePathname();
-  return isButton ? (
-    <div className={`${alignEnd ? "mt-auto" : ""}`}>
+  return !isLink ? (
+    <div className={className}>
       <button className={itemStyles} onClick={onClick}>
         <div
           className={`${iconContainerStyles} ${
@@ -47,55 +48,52 @@ export default function NavItem({
             icon({ size: 24 })
           )}
         </div>
-        {!popupOpen && (
-          <span
-            className={`hidden xl:block ${
-              pathname === href ? "font-bold" : ""
-            }`}
-          >
-            {label}
-          </span>
-        )}
+        <AnimatePresence>
+          {!popupOpen && (
+            <motion.span
+              initial={false}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1, ease: "easeInOut" }}
+              className={`hidden xl:block ml-4 ${pathname === href ? "font-bold" : ""}`}
+            >
+              {label}
+            </motion.span>
+          )}
+        </AnimatePresence>
       </button>
     </div>
   ) : (
     <Link href={href!} className={itemStyles} onClick={onClick}>
       <div className={iconContainerStyles}>
-        {pathname === href && !popupOpen ? (
-          typeof icon === "string" ? (
-            <Image
-              src={icon}
-              alt={label}
-              width={24}
-              height={24}
-              className="border-2 border-black dark:border-white rounded-full"
-              unoptimized
-            />
-          ) : activeIcon ? (
-            activeIcon({ size: 24 })
-          ) : (
-            icon({ size: 24 })
-          )
-        ) : typeof icon === "string" ? (
+        {typeof icon === "string" ? (
           <Image
             src={icon}
             alt={label}
             width={24}
             height={24}
-            className="rounded-full"
+            className={`rounded-full ${
+              pathname === href ? "border-2 border-black dark:border-white" : ""
+            }`}
             unoptimized
           />
         ) : (
-          icon({ size: 24 })
+          (pathname == href && activeIcon?.({ size: 24 })) || icon({ size: 24 })
         )}
       </div>
-      {!popupOpen && (
-        <span
-          className={`hidden xl:block ${pathname === href ? "font-bold" : ""}`}
-        >
-          {label}
-        </span>
-      )}
+      <AnimatePresence>
+        {!popupOpen && (
+          <motion.span
+            initial={false}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1, ease: "easeInOut" }}
+            className={`hidden xl:block ml-4 ${pathname === href ? "font-bold" : ""}`}
+          >
+            {label}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </Link>
   );
 }

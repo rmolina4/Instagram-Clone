@@ -26,8 +26,8 @@ export const getNextPosts = asyncWrapper(
 );
 
 export const createPost = asyncWrapper(async (req: Request, res: Response) => {
-  const { body } = req.body;
-  const media = req.files as Express.Multer.File[];
+  const { body, location, hide_metrics, disable_comments } = req.body;
+  const files = req.files as Express.Multer.File[];
 
   await db.transaction().execute(async (trx) => {
     const entity = await postRepository.createEntity(trx);
@@ -35,23 +35,17 @@ export const createPost = asyncWrapper(async (req: Request, res: Response) => {
       trx,
       req.account!.id,
       entity.id,
-      body
+      body,
+      location,
+      hide_metrics,
+      disable_comments
     );
-    const media_urls = await mediaHandler.createPost(media, post.id);
-    await postRepository.createPostMedia(trx, post.id, media_urls);
-
+    const media = await mediaHandler.createPost(files, post.id);
+    await postRepository.createPostMedia(trx, post.id, media);
     return res.status(201).json({
       success: true,
-      post: {
-        ...post,
-        media_urls,
-        username: req.account!.username,
-        comments: [],
-        liked_by_me: false,
-        bookmarked_by_me: false,
-        like_count: 0,
-        is_owner: true,
-      },
+      id: post.id,
+      entity_id: entity.id,
     });
   });
 });
@@ -89,13 +83,8 @@ export const createComment = asyncWrapper(
 
       return res.status(201).json({
         success: true,
-        comment: {
-          ...comment,
-          username: req.account!.username,
-          liked_by_me: false,
-          like_count: 0,
-          is_owner: true,
-        },
+        id: comment.id,
+        entity_id: entity.id,
       });
     });
   }

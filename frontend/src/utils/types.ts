@@ -1,3 +1,35 @@
+export type LUT_NAME =
+  | "None"
+  | "Aden"
+  | "Brannan"
+  | "Earlybird"
+  | "Hefe"
+  | "Inkwell"
+  | "Lomo";
+
+export interface LUT {
+  name: LUT_NAME;
+  strength: number;
+}
+
+export interface LUT_FIELDS {
+  sepia?: number;
+  brightness?: number;
+  saturate?: number;
+  contrast?: number;
+  grayscale?: number;
+}
+
+export const LUT_FILTERS: Record<LUT_NAME, LUT_FIELDS> = {
+  None: {},
+  Aden: { sepia: 0.2, brightness: 1.15, saturate: 1.4 },
+  Brannan: { contrast: 1.4, sepia: 0.5 },
+  Earlybird: { contrast: 0.9, sepia: 0.4 },
+  Hefe: { contrast: 1.25, saturate: 1.3, sepia: 0.3 },
+  Inkwell: { grayscale: 1, contrast: 1.1 },
+  Lomo: { contrast: 1.5, saturate: 1.5 },
+};
+
 export interface BaseResource {
   id: string;
   body: string | null;
@@ -11,8 +43,54 @@ export interface BaseResource {
 
 export interface Comment extends BaseResource {
   parent_id: string | null;
-  reply_count: number;
+  reply_count?: number;
+  recent?: boolean;
   root_id?: string;
+}
+
+export interface Adjustment {
+  Brightness: number;
+  Contrast: number;
+  Saturation: number;
+  Fade: number;
+  Temperature: number;
+  Vignette: number;
+}
+
+export enum Resolution {
+  "Original" = "Original",
+  "1:1" = "1:1",
+  "4:5" = "4:5",
+  "16:9" = "16:9",
+}
+
+export interface MediaDraft {
+  file: File;
+  resource: HTMLImageElement | HTMLVideoElement;
+  id: string;
+  poster: string | null;
+  updatePoster: boolean;
+  timeline?: string[];
+  cover?: number | string | null;
+  audio?: boolean;
+  start_time?: number;
+  end_time?: number;
+  mime_type: string;
+  lut: LUT_NAME;
+  lut_strength: number;
+  adjustments: Adjustment;
+  zoom: number;
+  resolution: Resolution;
+  pan: { x: number; y: number };
+}
+
+export interface ProcessedMedia extends Media {
+  file: File | Blob;
+}
+
+export interface Media {
+  media_url: string;
+  mime_type: string;
 }
 
 export interface Post extends BaseResource {
@@ -20,7 +98,8 @@ export interface Post extends BaseResource {
   followed_by_me: boolean;
   bookmarked_by_me: boolean;
   comments: Comment[];
-  media_urls: string[];
+  media: Media[];
+  comment_count: number;
 }
 
 export interface Profile {
@@ -35,7 +114,7 @@ export interface Profile {
   is_owner: boolean;
 }
 
-export interface Account {
+export interface User {
   id: string;
   username: string;
   email: string;
@@ -60,8 +139,9 @@ export interface GetNextPostsResponse extends APIResponse {
   posts: Post[];
 }
 
-export interface CreateCommentResponse extends APIResponse {
-  comment: Comment;
+export interface CreateResourceResponse extends APIResponse {
+  id: string;
+  entity_id: string;
 }
 
 export interface GetNextCommentsResponse extends APIResponse {
@@ -73,5 +153,13 @@ export interface GetProfileResponse extends APIResponse {
 }
 
 export interface GetMeResponse extends APIResponse {
-  account: Account;
+  user: User;
+}
+
+export interface GetUsernamesResponse extends APIResponse {
+  users: {
+    id: string;
+    username: string;
+    name: string;
+  }[];
 }

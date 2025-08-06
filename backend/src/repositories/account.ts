@@ -192,3 +192,12 @@ export const getAccountByEmail = async (email: string) => {
     .where("email", "=", email)
     .executeTakeFirst();
 };
+
+export const getUsernames = async (prefix: string) => {
+  return await db
+    .selectFrom("account")
+    .innerJoin("profile", "account.id", "profile.account_id")
+    .select(["account.id", "account.username", "profile.name"])
+    .where("username", "ilike", `${prefix}%`)
+    .execute();
+};
