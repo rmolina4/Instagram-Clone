@@ -3,34 +3,34 @@ import { InteractionState, PostFormData } from "./CreatePostModal";
 import { motion, useMotionValue, useMotionValueEvent } from "framer-motion";
 import { resize } from "motion";
 import { initializeCanvas } from "@/utils/Canvas";
+import { VideoMediaDraft } from "@/utils/types";
 
 export default function Video({
   interactionState,
-
   postFormData,
   setPostFormData,
-  videoRef,
   canvasRef,
+  videoRef,
 }: {
   interactionState: InteractionState;
   postFormData: PostFormData;
   setPostFormData: Dispatch<SetStateAction<PostFormData>>;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
 }) {
-  const leftX = useMotionValue(0);
-  const rightX = useMotionValue(0);
-  const markerX = useMotionValue(0);
+  const startX = useMotionValue(0);
+  const endX = useMotionValue(0);
+  const progressX = useMotionValue(0);
   const coverX = useMotionValue(0);
   const timelineRef = useRef<HTMLDivElement>(null);
-  const [leftConstraints, setLeftConstraints] = useState<{
+  const [startConstraints, setStartConstraints] = useState<{
     left: number;
     right: number;
   }>({
     left: 0,
     right: 0,
   });
-  const [rightConstraints, setRightConstraints] = useState<{
+  const [endConstraints, setEndConstraints] = useState<{
     left: number;
     right: number;
   }>({
@@ -43,6 +43,9 @@ export default function Video({
   });
   const [cover, setCover] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const video = postFormData.media[
+    interactionState.position
+  ] as VideoMediaDraft;
 
   const handleDragEnd = () => {
     const canvas = canvasRef.current;
@@ -57,8 +60,6 @@ export default function Video({
       canvasHeight,
       window.devicePixelRatio
     );
-    const video = postFormData.media[interactionState.position]
-      .resource as HTMLVideoElement;
     const progress = coverX.get() / size.width;
     setPostFormData((prev) => ({
       ...prev,
@@ -68,7 +69,7 @@ export default function Video({
           : media
       ),
     }));
-    video.currentTime = progress * video.duration;
+    video.resource.currentTime = progress * video.resource.duration;
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.drawImage(
       postFormData.media[interactionState.position].resource,
@@ -83,75 +84,49 @@ export default function Video({
   useEffect(() => {
     if (!timelineRef.current) return;
     const stop = resize(timelineRef.current, (_, { width, height }) => {
-      setLeftConstraints({ left: 0, right: width - 16 });
-      setRightConstraints({ left: -width + 16, right: 0 });
+      if (width === 0) return;
+      const startXValue = video.start_percent * width;
+      const endXValue = video.end_percent * width - width;
+      startX.set(startXValue);
+      endX.set(endXValue);
+      setStartConstraints({ left: 0, right: width + endXValue - 16 });
+      setEndConstraints({ left: -width + startXValue + 16, right: 0 });
       setSize({ width, height });
     });
     return () => stop();
-  }, [timelineRef]);
+  }, [timelineRef, interactionState.position]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    progressX.set(interactionState.currentVideoProgress * size.width);
+  }, [interactionState.currentVideoProgress]);
 
-    let frameId: number;
-
-    const tick = () => {
-      if (!video.duration) return;
-      const progress = video.currentTime / video.duration;
-      const max = (rightX.get() + size.width) / size.width;
-      const min = leftX.get() / size.width;
-      if (progress > max || progress < min) {
-        return (video.currentTime = min * video.duration);
-      }
-      markerX.set(progress * size.width);
-      frameId = requestAnimationFrame(tick);
-    };
-
-    const handlePlay = () => {
-      frameId = requestAnimationFrame(tick);
-    };
-
-    const handlePause = () => cancelAnimationFrame(frameId);
-
-    const handleSeeked = () => tick();
-
-    video.addEventListener("play", handlePlay);
-    video.addEventListener("pause", handlePause);
-    video.addEventListener("seeked", handleSeeked);
-
-    if (!video.paused) handlePlay();
-
-    return () => {
-      video.removeEventListener("play", handlePlay);
-      video.removeEventListener("pause", handlePause);
-      video.removeEventListener("seeked", handleSeeked);
-      cancelAnimationFrame(frameId);
-    };
-  }, [videoRef, size]);
-
-  useMotionValueEvent(leftX, "change", (value) => {
+  useMotionValueEvent(startX, "change", (value) => {
+    if (size.width === 0) return;
     setPostFormData((prev) => ({
       ...prev,
       media: prev.media.map((media, index) =>
         index === interactionState.position
-          ? { ...media, start_time: value / size.width }
+          ? { ...media, start_percent: value / size.width }
           : media
       ),
     }));
-    setRightConstraints({ left: -size.width + value + 16, right: 0 });
+    setEndConstraints({ left: -size.width + value + 16, right: 0 });
   });
 
-  useMotionValueEvent(rightX, "change", (value) => {
+  useMotionValueEvent(endX, "change", (value) => {
+    if (size.width === 0) return;
     setPostFormData((prev) => ({
       ...prev,
       media: prev.media.map((media, index) =>
         index === interactionState.position
-          ? { ...media, end_time: -value / size.width }
+          ? {
+              ...media,
+              end_percent: (size.width + value) / size.width,
+            }
           : media
       ),
     }));
-    setLeftConstraints({ left: 0, right: size.width + value - 16 });
+    setStartConstraints({ left: 0, right: size.width + value - 16 });
   });
 
   return (
@@ -190,15 +165,13 @@ export default function Video({
         </div>
         <div className="relative">
           <div className="flex items-center rounded-md overflow-hidden">
-            {postFormData.media[interactionState.position].timeline?.map(
-              (frame, index) => (
-                <div
-                  style={{ backgroundImage: `url(${frame})` }}
-                  key={index}
-                  className="w-16 aspect-square bg-cover bg-center shrink-0"
-                />
-              )
-            )}
+            {video.timeline.map((frame, index) => (
+              <div
+                style={{ backgroundImage: `url(${frame})` }}
+                key={index}
+                className="w-16 aspect-square bg-cover bg-center shrink-0"
+              />
+            ))}
           </div>
           <motion.div
             className="absolute top-0 left-0 border-2 border-white w-16 aspect-square rounded-md bg-cover bg-center"
@@ -207,7 +180,7 @@ export default function Video({
             dragMomentum={false}
             dragElastic={0}
             style={{
-              backgroundImage: `url(${cover || postFormData.media[interactionState.position].timeline?.[0]})`,
+              backgroundImage: `url(${cover || video.timeline[0]})`,
               x: coverX,
             }}
             onDragEnd={handleDragEnd}
@@ -221,49 +194,59 @@ export default function Video({
             className="flex items-center rounded-md overflow-hidden"
             ref={timelineRef}
           >
-            {postFormData.media[interactionState.position].timeline?.map(
-              (frame, index) => (
-                <div
-                  style={{ backgroundImage: `url(${frame})` }}
-                  key={index}
-                  className="w-16 aspect-square bg-cover bg-center shrink-0"
-                />
-              )
-            )}
+            {video.timeline.map((frame, index) => (
+              <div
+                style={{ backgroundImage: `url(${frame})` }}
+                key={index}
+                className="w-16 aspect-square bg-cover bg-center shrink-0"
+              />
+            ))}
           </div>
           <div
             className="absolute inset-0 bg-black/50 rounded-l-md"
             style={{
-              width: `${((size.width + rightConstraints.left - 16) * 100) / size.width}%`,
+              width: `${((size.width + endConstraints.left - 16) * 100) / size.width}%`,
             }}
           />
           <div
             className="absolute inset-0 bg-black/50 rounded-r-md left-auto"
             style={{
-              width: `${((size.width - leftConstraints.right - 16) * 100) / size.width}%`,
+              width: `${((size.width - startConstraints.right - 16) * 100) / size.width}%`,
             }}
           />
           <motion.div
             className="absolute top-1/2 -translate-y-1/2 w-[6px] h-[78px] bg-white shadow-[1px_0_10px_1px_rgba(0,0,0,0.4)] rounded-full"
-            style={{ x: markerX }}
+            style={{ x: progressX }}
           />
           <motion.div
             className="absolute flex items-center justify-center top-0 left-0 w-2 h-full bg-white shadow-[-1px_0_10px_1px_rgba(0,0,0,0.4)] hover:cursor-grab rounded-l-md"
             drag="x"
-            dragConstraints={leftConstraints}
+            dragConstraints={startConstraints}
             dragMomentum={false}
             dragElastic={0}
-            style={{ x: leftX }}
+            style={{ x: startX }}
+            onDragStart={() => {
+              videoRef.current?.pause();
+            }}
+            onDragEnd={() => {
+              videoRef.current?.play();
+            }}
           >
             <div className="w-[2px] h-5 bg-black" />
           </motion.div>
           <motion.div
             className="absolute flex items-center justify-center top-0 right-0 w-2 h-full bg-white shadow-[1px_0_10px_1px_rgba(0,0,0,0.4)] hover:cursor-grab rounded-r-md"
             drag="x"
-            dragConstraints={rightConstraints}
+            dragConstraints={endConstraints}
             dragMomentum={false}
             dragElastic={0}
-            style={{ x: rightX }}
+            style={{ x: endX }}
+            onDragStart={() => {
+              videoRef.current?.pause();
+            }}
+            onDragEnd={() => {
+              videoRef.current?.play();
+            }}
           >
             <div className="w-[2px] h-5 bg-black" />
           </motion.div>
@@ -295,13 +278,16 @@ export default function Video({
         <input
           className="w-5 h-5"
           type="checkbox"
-          checked={!postFormData.media[interactionState.position].audio}
+          checked={!video.audio}
           onChange={() => {
             setPostFormData((prev) => ({
               ...prev,
               media: prev.media.map((media, index) =>
                 index === interactionState.position
-                  ? { ...media, audio: !media.audio }
+                  ? {
+                      ...media,
+                      audio: !video.audio,
+                    }
                   : media
               ),
             }));

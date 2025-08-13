@@ -10,15 +10,15 @@ export default function PostSettingsBar({
   setInteractionState,
   postFormData,
   setPostFormData,
-  videoRef,
   canvasRef,
+  videoRef,
 }: {
   interactionState: InteractionState;
   setInteractionState: Dispatch<SetStateAction<InteractionState>>;
   postFormData: PostFormData;
   setPostFormData: Dispatch<SetStateAction<PostFormData>>;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
 }) {
   return (
     <motion.div
@@ -29,8 +29,8 @@ export default function PostSettingsBar({
     >
       <div className="w-[340px] h-full flex flex-col text-sm overflow-y-auto gap-3">
         {interactionState.stage == Stage.Edit &&
-          (postFormData.media[interactionState.position].resource instanceof
-          HTMLImageElement ? (
+          (postFormData.media[interactionState.position].media_type ===
+          "image" ? (
             <Filters
               interactionState={interactionState}
               setInteractionState={setInteractionState}
@@ -42,8 +42,8 @@ export default function PostSettingsBar({
               interactionState={interactionState}
               postFormData={postFormData}
               setPostFormData={setPostFormData}
-              videoRef={videoRef}
               canvasRef={canvasRef}
+              videoRef={videoRef}
             />
           ))}
         {interactionState.stage == Stage.Share && (

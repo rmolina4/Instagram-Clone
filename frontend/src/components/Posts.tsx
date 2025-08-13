@@ -19,7 +19,10 @@ export default function Posts({ initialPosts }: { initialPosts: PostProps[] }) {
   let cursor = posts[posts.length - 1]?.created_at || null;
 
   useEffect(() => {
-    if (initialPosts.length == 0) loadMore.current = false;
+    if (initialPosts.length == 0) {
+      loadMore.current = false;
+      return;
+    }
     setPosts(initialPosts);
     cursor = initialPosts[initialPosts.length - 1].created_at;
     setHasHydrated(true);

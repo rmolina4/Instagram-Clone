@@ -34,6 +34,7 @@ export interface InteractionState {
   adjustmentsVisible: boolean;
   addCollaboratorsVisible: boolean;
   active: Active;
+  currentVideoProgress: number;
 }
 
 export interface PostFormData {
@@ -84,6 +85,7 @@ export default function CreatePostModal({
     adjustmentsVisible: false,
     addCollaboratorsVisible: false,
     active: null,
+    currentVideoProgress: 0,
   });
   const [postFormData, setPostFormData] = useState<PostFormData>({
     media: [],
@@ -136,12 +138,12 @@ export default function CreatePostModal({
     const loaders = files.map(
       (file) =>
         new Promise<MediaDraft>((resolve) => {
-          if (file.type.endsWith("png") || file.type.endsWith("jpg")) {
+          if (file.type.startsWith("image/")) {
             const resource = new Image();
             resource.src = URL.createObjectURL(file);
             resource.onload = () => {
               resolve({
-                file,
+                media_type: "image",
                 id: crypto.randomUUID(),
                 resource,
                 poster: null,
@@ -155,7 +157,7 @@ export default function CreatePostModal({
                 pan: { x: 0, y: 0 },
               });
             };
-          } else if (file.type.endsWith("mp4")) {
+          } else if (file.type.startsWith("video/")) {
             const resource = document.createElement(
               "video"
             ) as HTMLVideoElement;
@@ -168,6 +170,7 @@ export default function CreatePostModal({
             });
             resource.onloadeddata = () => {
               resolve({
+                media_type: "video",
                 file,
                 id: crypto.randomUUID(),
                 resource,
@@ -176,8 +179,8 @@ export default function CreatePostModal({
                 timeline: [],
                 cover: 0,
                 audio: true,
-                start_time: 0,
-                end_time: resource.duration,
+                start_percent: 0,
+                end_percent: 1,
                 mime_type: file.type,
                 lut: "None",
                 lut_strength: 100,
@@ -214,19 +217,19 @@ export default function CreatePostModal({
         canvasHeight,
         window.devicePixelRatio
       );
-      for (const m of newMedia) {
-        if (m.resource instanceof HTMLVideoElement) {
+      for (const media of newMedia) {
+        if (media.media_type === "video") {
           const timeline = await drawTimeline(
             canvas,
             ctx,
-            m.resource,
+            media.resource,
             canvasWidth,
             canvasHeight
           );
           setPostFormData((prev) => ({
             ...prev,
             media: prev.media.map((m) =>
-              m.id === m.id ? { ...m, timeline } : m
+              m.id === media.id ? { ...m, timeline } : m
             ),
           }));
         }
@@ -265,7 +268,18 @@ export default function CreatePostModal({
     postFormData.processedMedia.forEach((m) => {
       formData.append("files", m.file);
     });
-
+    const metadata = postFormData.processedMedia.map((m) => {
+      return m.media_type === "video"
+        ? {
+            start_percent: m.start_percent,
+            end_percent: m.end_percent,
+            pan: m.pan,
+            zoom: m.zoom,
+            duration: m.duration,
+          }
+        : null;
+    });
+    formData.append("metadata", JSON.stringify(metadata));
     const data = await safeFetch<CreateResourceResponse>(
       `${process.env.NEXT_PUBLIC_API_URL}/post`,
       {
@@ -298,6 +312,19 @@ export default function CreatePostModal({
 
   const handleDecrementStage = () => {
     if (interactionState.stage > Stage.Crop) {
+      if (interactionState.stage === Stage.Edit) {
+        setPostFormData((prev) => ({
+          ...prev,
+          media: prev.media.map((m) =>
+            m.media_type === "video"
+              ? { ...m, start_percent: 0, end_percent: 1 }
+              : m
+          ),
+        }));
+        if (videoRef.current) {
+          videoRef.current.play();
+        }
+      }
       setInteractionState((prev) => ({
         ...prev,
         stage: prev.stage - 1,
@@ -493,8 +520,8 @@ export default function CreatePostModal({
                 setInteractionState={setInteractionState}
                 postFormData={postFormData}
                 setPostFormData={setPostFormData}
-                videoRef={videoRef}
                 canvasRef={canvasRef}
+                videoRef={videoRef}
               />
             )}
           </>

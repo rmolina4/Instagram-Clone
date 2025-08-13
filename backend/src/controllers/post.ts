@@ -27,6 +27,7 @@ export const getNextPosts = asyncWrapper(
 
 export const createPost = asyncWrapper(async (req: Request, res: Response) => {
   const { body, location, hide_metrics, disable_comments } = req.body;
+  const metadata = JSON.parse(req.body.metadata);
   const files = req.files as Express.Multer.File[];
 
   await db.transaction().execute(async (trx) => {
@@ -40,7 +41,7 @@ export const createPost = asyncWrapper(async (req: Request, res: Response) => {
       hide_metrics,
       disable_comments
     );
-    const media = await mediaHandler.createPost(files, post.id);
+    const media = await mediaHandler.createPost(post.id, files, metadata);
     await postRepository.createPostMedia(trx, post.id, media);
     return res.status(201).json({
       success: true,

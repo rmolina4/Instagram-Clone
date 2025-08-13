@@ -64,17 +64,10 @@ export enum Resolution {
   "16:9" = "16:9",
 }
 
-export interface MediaDraft {
-  file: File;
-  resource: HTMLImageElement | HTMLVideoElement;
+interface BaseMediaDraft {
   id: string;
   poster: string | null;
   updatePoster: boolean;
-  timeline?: string[];
-  cover?: number | string | null;
-  audio?: boolean;
-  start_time?: number;
-  end_time?: number;
   mime_type: string;
   lut: LUT_NAME;
   lut_strength: number;
@@ -84,9 +77,42 @@ export interface MediaDraft {
   pan: { x: number; y: number };
 }
 
-export interface ProcessedMedia extends Media {
+export interface ImageMediaDraft extends BaseMediaDraft {
+  media_type: "image";
+  resource: HTMLImageElement;
+}
+
+export interface VideoMediaDraft extends BaseMediaDraft {
+  media_type: "video";
+  file: File;
+  timeline: string[];
+  cover: number | string | null;
+  audio: boolean;
+  start_percent: number;
+  end_percent: number;
+  resource: HTMLVideoElement;
+}
+
+export type MediaDraft = ImageMediaDraft | VideoMediaDraft;
+
+export interface BaseProcessedMedia extends Media {
   file: File | Blob;
 }
+
+export interface ProcessedImageMedia extends BaseProcessedMedia {
+  media_type: "image";
+}
+
+export interface ProcessedVideoMedia extends BaseProcessedMedia {
+  duration: number;
+  media_type: "video";
+  start_percent: number;
+  end_percent: number;
+  pan: { x: number; y: number };
+  zoom: number;
+}
+
+export type ProcessedMedia = ProcessedVideoMedia | ProcessedImageMedia;
 
 export interface Media {
   media_url: string;

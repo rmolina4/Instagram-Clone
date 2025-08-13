@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import {
   AnimatePresence,
   motion,
+  MotionValue,
   Reorder,
   useMotionValue,
   useMotionValueEvent,
@@ -15,6 +16,7 @@ import {
 } from "@/utils/types";
 import { InteractionState, PostFormData, Stage } from "./CreatePostModal";
 import { initializeCanvas } from "@/utils/Canvas";
+import { ImageMediaDraft, VideoMediaDraft } from "@/utils/types";
 
 import {
   IoIosArrowDroprightCircle,
@@ -34,9 +36,15 @@ interface CreatePostCarouselProps {
   carouselSize: { width: number; height: number };
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   animating: boolean;
-  className?: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  className?: string;
 }
+
+const isVideoMediaDraft = (
+  media: ImageMediaDraft | VideoMediaDraft
+): media is VideoMediaDraft => {
+  return media.media_type === "video";
+};
 
 export default function CreatePostCarousel({
   interactionState,
@@ -195,6 +203,7 @@ export default function CreatePostCarousel({
     canvas: HTMLCanvasElement,
     index: number
   ): Promise<{
+    media_type: "image";
     media_url: string;
     mime_type: string;
     file: Blob;
@@ -203,6 +212,7 @@ export default function CreatePostCarousel({
       canvas.toBlob((blob) => {
         if (!blob) return resolve(null);
         resolve({
+          media_type: "image",
           media_url: URL.createObjectURL(blob),
           mime_type: postFormData.media[index].mime_type,
           file: blob,
@@ -213,16 +223,9 @@ export default function CreatePostCarousel({
 
   //sets constraints
   useEffect(() => {
-    if (
-      carouselSize.width === 0 ||
-      carouselSize.height === 0 ||
-      animating ||
-      interactionState.stage != Stage.Crop
-    )
+    if (carouselSize.width === 0 || carouselSize.height === 0 || animating)
       return;
-    if (videoRef.current) {
-      videoRef.current.play();
-    }
+
     const width =
       postFormData.media[interactionState.position].resource.width *
       (carouselSize.height /
@@ -270,11 +273,20 @@ export default function CreatePostCarousel({
       const exportAllMedia = async () => {
         const processedMedia: ProcessedMedia[] = [];
         for (let i = 0; i < postFormData.media.length; i++) {
-          if (postFormData.media[i].resource instanceof HTMLVideoElement) {
+          if (postFormData.media[i].media_type === "video") {
             processedMedia.push({
-              file: postFormData.media[i].file,
+              media_type: "video",
+              file: (postFormData.media[i] as VideoMediaDraft).file,
               mime_type: postFormData.media[i].mime_type,
               media_url: postFormData.media[i].resource.src,
+              start_percent: (postFormData.media[i] as VideoMediaDraft)
+                .start_percent,
+              end_percent: (postFormData.media[i] as VideoMediaDraft)
+                .end_percent,
+              pan: postFormData.media[i].pan,
+              zoom: postFormData.media[i].zoom,
+              duration: (postFormData.media[i] as VideoMediaDraft).resource
+                .duration,
             });
           } else {
             ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -339,20 +351,17 @@ export default function CreatePostCarousel({
       );
       const posters: (string | null)[] = [];
       for (let i = 0; i < postFormData.media.length; i++) {
-        const resource = postFormData.media[i].resource;
-        if (
-          resource instanceof HTMLVideoElement &&
-          postFormData.media[i].poster === null
-        ) {
+        const m = postFormData.media[i];
+        if (m.media_type === "video" && postFormData.media[i].poster === null) {
           await new Promise((resolve) =>
-            resource.requestVideoFrameCallback(resolve)
+            m.resource.requestVideoFrameCallback(resolve)
           );
         }
         ctx.clearRect(0, 0, containerWidth, containerHeight);
         const { sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight } =
           buildCanvasParams(i, containerWidth, containerHeight);
         ctx.drawImage(
-          resource,
+          m.resource,
           sx,
           sy,
           sWidth,
@@ -379,20 +388,50 @@ export default function CreatePostCarousel({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    setIsPlaying(!video.paused);
-    const play = () => {
+
+    const handlePlay = () => {
       setIsPlaying(true);
     };
-    const pause = () => {
+    const handlePause = () => {
       setIsPlaying(false);
     };
-    video.addEventListener("play", play);
-    video.addEventListener("pause", pause);
+
+    setIsPlaying(!video.paused);
+
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
+
     return () => {
-      video.removeEventListener("play", play);
-      video.removeEventListener("pause", pause);
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
     };
-  }, [videoRef]);
+  }, [videoRef, interactionState.position]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const m = postFormData.media[interactionState.position];
+    if (!video || !isPlaying || !isVideoMediaDraft(m)) return;
+
+    let frameId: number;
+    const SEEK_OFFSET = 0.01;
+    const tick = () => {
+      const progress = video.currentTime / video.duration;
+      setInteractionState((prev) => ({
+        ...prev,
+        currentVideoProgress: progress,
+      }));
+      if (progress > m.end_percent || progress < m.start_percent) {
+        video.currentTime = m.start_percent * video.duration + SEEK_OFFSET;
+      }
+      frameId = requestAnimationFrame(tick);
+    };
+
+    frameId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+    };
+  }, [isPlaying]);
 
   useMotionValueEvent(x, "change", (value) => {
     const width =
@@ -443,20 +482,18 @@ export default function CreatePostCarousel({
   return (
     <motion.div
       ref={carouselRef}
-      className={`relative flex items-center overflow-hidden justify-center ${className}}`}
+      className={`relative flex items-center overflow-hidden justify-center ${className}`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ ease: "easeInOut", duration: 0.3 }}
       exit={{ opacity: 0 }}
     >
-      {postFormData.media[interactionState.position].resource instanceof
-      HTMLVideoElement ? (
+      {postFormData.media[interactionState.position].media_type === "video" ? (
         <>
           <motion.video
             ref={videoRef}
             src={postFormData.media[interactionState.position].resource.src}
             autoPlay
-            muted
             loop
             className={`h-full max-w-none relative ${interactionState.stage >= Stage.Edit ? "hover:cursor-pointer" : "hover:cursor-grab"}`}
             style={{
@@ -537,8 +574,7 @@ export default function CreatePostCarousel({
         ref={canvasRef}
         className={`${
           interactionState.stage < Stage.Edit ||
-          postFormData.media[interactionState.position].resource instanceof
-            HTMLVideoElement
+          postFormData.media[interactionState.position].media_type === "video"
             ? "hidden"
             : ""
         }`}
@@ -584,7 +620,7 @@ export default function CreatePostCarousel({
       {interactionState.stage === Stage.Crop && (
         <>
           <button
-            className={`absolute bottom-5 left-3 hover:cursor-pointer rounded-full p-2 ${interactionState.active === "resolution" ? "bg-white" : "bg-neutral-900/80"}`}
+            className={`absolute bottom-3 left-3 hover:cursor-pointer rounded-full p-2 ${interactionState.active === "resolution" ? "bg-white" : "bg-neutral-900/80"}`}
             onClick={() => {
               setInteractionState((prev) => ({
                 ...prev,
@@ -598,7 +634,7 @@ export default function CreatePostCarousel({
             />
           </button>
           <button
-            className={`absolute bottom-5 left-15 hover:cursor-pointer rounded-full p-2 ${interactionState.active === "zoom" ? "bg-white" : "bg-neutral-900/80"}`}
+            className={`absolute bottom-3 left-16 hover:cursor-pointer rounded-full p-2 ${interactionState.active === "zoom" ? "bg-white" : "bg-neutral-900/80"}`}
             onClick={() => {
               setInteractionState((prev) => ({
                 ...prev,
@@ -612,7 +648,7 @@ export default function CreatePostCarousel({
             />
           </button>
           <button
-            className={`absolute bottom-5 right-3 hover:cursor-pointer rounded-full p-2 ${interactionState.active === "reorder" ? "bg-white" : "bg-neutral-900/80"}`}
+            className={`absolute bottom-3 right-3 hover:cursor-pointer rounded-full p-2 ${interactionState.active === "reorder" ? "bg-white" : "bg-neutral-900/80"}`}
             onClick={() => {
               setInteractionState((prev) => ({
                 ...prev,
@@ -630,7 +666,7 @@ export default function CreatePostCarousel({
       <AnimatePresence>
         {interactionState.active === "reorder" && (
           <motion.div
-            className="absolute bottom-17 right-3 bg-neutral-900/80 rounded-md flex items-center justify-center p-2 gap-2"
+            className="absolute bottom-16 right-3 bg-neutral-900/80 rounded-md flex items-center justify-center p-2 gap-2"
             exit={{ opacity: 0, y: 10 }}
             transition={{ ease: "easeInOut", duration: 0.1 }}
           >
@@ -679,7 +715,7 @@ export default function CreatePostCarousel({
                           ...prev,
                           position: Math.min(
                             interactionState.position,
-                            postFormData.media.length - 1
+                            postFormData.media.length - 2
                           ),
                         }));
                         setPostFormData((prev) => ({
@@ -708,7 +744,7 @@ export default function CreatePostCarousel({
       <AnimatePresence>
         {interactionState.active === "resolution" && (
           <motion.div
-            className="absolute bottom-17 left-3"
+            className="absolute bottom-16 left-3"
             exit={{ opacity: 0, y: 10 }}
             transition={{ ease: "easeInOut", duration: 0.1 }}
           >
@@ -747,7 +783,7 @@ export default function CreatePostCarousel({
       <AnimatePresence>
         {interactionState.active === "zoom" && (
           <motion.div
-            className="absolute bottom-17 left-15 bg-neutral-900/80 flex items-center justify-center py-4 px-2 rounded-md"
+            className="absolute bottom-16 left-15 bg-neutral-900/80 flex items-center justify-center py-4 px-2 rounded-md"
             exit={{ opacity: 0, y: 10 }}
             transition={{ ease: "easeInOut", duration: 0.1 }}
           >
