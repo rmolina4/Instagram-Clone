@@ -17,6 +17,8 @@ export const createPost = async (
       y: number;
     };
     zoom: number;
+    width: number;
+    height: number;
   } | null)[]
 ) => {
   const media_urls: { media_url: string; mime_type: string }[] = [];
@@ -39,8 +41,12 @@ export const createPost = async (
       const end_time = metadata[index].end_percent * metadata[index].duration;
       const duration = end_time - start_time;
       const zoomFactor = 1 + metadata[index].zoom / 100;
-      const normalizedPanX = -metadata[index].pan.x + 0.5;
-      const normalizedPanY = -metadata[index].pan.y + 0.5;
+
+      const scaleX =
+        metadata[index].width * (1080 / metadata[index].height) * zoomFactor;
+      const scaleY = 1080 * zoomFactor;
+      const offsetX = metadata[index].pan.x * scaleX;
+      const offsetY = metadata[index].pan.y * scaleY;
 
       await runffmpeg([
         "-ss",
@@ -50,7 +56,7 @@ export const createPost = async (
         "-t",
         duration.toString(),
         "-vf",
-        `scale=${1080 * zoomFactor}:${1080 * zoomFactor}:force_original_aspect_ratio=increase,crop=1080:1080:(iw - 1080) * ${normalizedPanX}:(ih - 1080) * ${normalizedPanY}`,
+        `scale=${scaleX}:${scaleY},crop=1080:1080:${offsetX}:${offsetY}`,
         outputPath,
       ]);
       uploadBody = await fs.promises.readFile(outputPath);

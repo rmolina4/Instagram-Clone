@@ -4,13 +4,14 @@ import Link from "next/link";
 import Logo from "./Logo";
 import { useState } from "react";
 import { useApp } from "@/utils/AppProvider";
-import NavItem from "./NavItem";
 import { IconType } from "react-icons";
 import CreatePostModal from "./CreatePostModal";
 import safeFetch from "@/utils/safeFetch";
 import { APIResponse } from "@/utils/types";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
+import { usePathname } from "next/navigation";
+import Image from "next/image";
 
 import { MdOutlineSearch, MdExplore, MdOutlineExplore } from "react-icons/md";
 import { GoHomeFill, GoHome } from "react-icons/go";
@@ -25,7 +26,7 @@ import { RxHamburgerMenu } from "react-icons/rx";
 import { FaInstagram } from "react-icons/fa";
 import { IoBookmarkOutline } from "react-icons/io5";
 
-export interface NavItem {
+interface NavItem {
   label: string;
   icon: IconType | string;
   isLink?: boolean;
@@ -34,6 +35,10 @@ export interface NavItem {
   onClick?: () => void;
   childOpen?: boolean;
   className?: string;
+}
+
+interface NavItemProps extends NavItem {
+  popupOpen: boolean;
 }
 
 export type Active = "search" | "notifications" | null;
@@ -45,9 +50,9 @@ interface InteractionState {
 }
 
 const itemStyles =
-  "w-full flex items-center hover:bg-gray-100 rounded-lg hover:cursor-pointer";
+  "w-full flex items-center hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-lg hover:cursor-pointer";
 const iconContainerStyles =
-  "w-[48px] h-[48px] min-w-[48px] flex justify-center items-center p-3";
+  "w-[48px] h-[48px] min-w-[48px] flex justify-center items-center p-3 rounded-md";
 
 export default function Navbar() {
   const [interactionState, setInteractionState] = useState<InteractionState>({
@@ -281,3 +286,86 @@ export default function Navbar() {
     </>
   );
 }
+
+const NavItem = ({
+  label,
+  href,
+  icon,
+  activeIcon,
+  isLink,
+  onClick,
+  popupOpen,
+  childOpen,
+  className,
+}: NavItemProps) => {
+  const pathname = usePathname();
+  return !isLink ? (
+    <div className={className}>
+      <button className={itemStyles} onClick={onClick}>
+        <div
+          className={`${iconContainerStyles} ${
+            childOpen ? "border border-gray-300" : ""
+          }`}
+        >
+          {typeof icon === "string" ? (
+            <Image
+              src={icon}
+              alt={label}
+              width={24}
+              height={24}
+              className="rounded-full"
+              unoptimized
+            />
+          ) : (
+            icon({ size: 24 })
+          )}
+        </div>
+        <AnimatePresence>
+          {!popupOpen && (
+            <motion.span
+              initial={false}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1, ease: "easeInOut" }}
+              className={`hidden xl:block ml-4 ${pathname === href ? "font-bold" : ""}`}
+            >
+              {label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </button>
+    </div>
+  ) : (
+    <Link href={href!} className={itemStyles} onClick={onClick}>
+      <div className={iconContainerStyles}>
+        {typeof icon === "string" ? (
+          <Image
+            src={icon}
+            alt={label}
+            width={24}
+            height={24}
+            className={`rounded-full ${
+              pathname === href ? "border-2 border-black dark:border-white" : ""
+            }`}
+            unoptimized
+          />
+        ) : (
+          (pathname == href && activeIcon?.({ size: 24 })) || icon({ size: 24 })
+        )}
+      </div>
+      <AnimatePresence>
+        {!popupOpen && (
+          <motion.span
+            initial={false}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1, ease: "easeInOut" }}
+            className={`hidden xl:block ml-4 ${pathname === href ? "font-bold" : ""}`}
+          >
+            {label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </Link>
+  );
+};

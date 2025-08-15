@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Media, ProcessedVideoMedia } from "@/utils/types";
+import { Media } from "@/utils/types";
 import { useEffect, useRef, useState } from "react";
 import {
   IoIosArrowDroprightCircle,
@@ -10,15 +10,9 @@ import { FaPlay, FaVolumeMute, FaVolumeUp } from "react-icons/fa";
 interface PostCarouselProps {
   position: number;
   setPosition: (position: number) => void;
-  media: (Media | ProcessedVideoMedia)[];
+  media: Media[];
   className?: string;
 }
-
-const isProcessedVideoMedia = (
-  media: Media | ProcessedVideoMedia
-): media is ProcessedVideoMedia => {
-  return "media_type" in media && media.media_type === "video";
-};
 
 export default function PostCarousel({
   position,
@@ -34,15 +28,12 @@ export default function PostCarousel({
   useEffect(() => {
     videoRefs.current.forEach((video, index) => {
       if (!video) return;
-      const setCurrentTime = () => {
-        video.currentTime = isProcessedVideoMedia(media[index])
-          ? media[index].start_percent * video.duration
-          : 0;
-      };
       if (video.readyState < 2) {
-        video.onloadeddata = setCurrentTime;
+        video.onloadeddata = () => {
+          video.currentTime = 0;
+        };
       } else {
-        setCurrentTime();
+        video.currentTime = 0;
       }
       if (index === position) {
         video.play();
@@ -77,28 +68,6 @@ export default function PostCarousel({
     };
   }, [videoRefs, position]);
 
-  useEffect(() => {
-    const video = videoRefs.current[position];
-    const m = media[position];
-    if (!video || !isPlaying || !isProcessedVideoMedia(m)) return;
-
-    let frameId: number;
-    const SEEK_OFFSET = 0.01;
-    const tick = () => {
-      const progress = video.currentTime / video.duration;
-      if (progress > m.end_percent || progress < m.start_percent) {
-        video.currentTime = m.start_percent * video.duration + SEEK_OFFSET;
-      }
-      frameId = requestAnimationFrame(tick);
-    };
-
-    frameId = requestAnimationFrame(tick);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [isPlaying]);
-
   return (
     <div
       className={`flex relative overflow-hidden ${
@@ -122,7 +91,7 @@ export default function PostCarousel({
                 alt="post"
                 fill
                 sizes="(max-width: 768px) 100vw, 700px"
-                className="object-cover"
+                className="object-contain"
                 onLoad={() => {
                   setLoaded(true);
                 }}
@@ -137,17 +106,7 @@ export default function PostCarousel({
                 muted={isMuted}
                 playsInline
                 loop
-                className="object-cover w-full h-full"
-                style={
-                  isProcessedVideoMedia(media)
-                    ? {
-                        objectPosition: `${(-media.pan.x + 0.5) * 100}% ${
-                          (-media.pan.y + 0.5) * 100
-                        }%`,
-                        transform: `scale(${(media.zoom + 100) / 100})`,
-                      }
-                    : undefined
-                }
+                className="object-contain w-full h-full bg-black"
                 onClick={() => {
                   if (videoRefs.current[index]?.paused) {
                     videoRefs.current[index]?.play();

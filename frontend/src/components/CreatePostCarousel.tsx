@@ -148,20 +148,17 @@ export default function CreatePostCarousel({
     const scaledWidth = width * zoomFactor;
     const scaledHeight = canvasHeight * zoomFactor;
 
-    const maxPanX = Math.max(
-      0,
-      (scaledWidth - canvasWidth) / (2 * scaledWidth)
+    const normalizedPan = normalizePan(
+      postFormData.media[index].pan,
+      canvasWidth,
+      canvasHeight,
+      scaledWidth,
+      scaledHeight
     );
-    const maxPanY = Math.max(
-      0,
-      (scaledHeight - canvasHeight) / (2 * scaledHeight)
-    );
-    const normalizedPanX = -postFormData.media[index].pan.x + maxPanX;
-    const normalizedPanY = -postFormData.media[index].pan.y + maxPanY;
 
     return {
-      sx: normalizedPanX * postFormData.media[index].resource.width,
-      sy: normalizedPanY * postFormData.media[index].resource.height,
+      sx: normalizedPan.x * postFormData.media[index].resource.width,
+      sy: normalizedPan.y * postFormData.media[index].resource.height,
       sWidth:
         postFormData.media[index].resource.width * (canvasWidth / scaledWidth),
       sHeight:
@@ -171,6 +168,27 @@ export default function CreatePostCarousel({
       dy: 0,
       dWidth: canvasWidth,
       dHeight: canvasHeight,
+    };
+  };
+
+  const normalizePan = (
+    pan: { x: number; y: number },
+    containerWidth: number,
+    containerHeight: number,
+    scaledWidth: number,
+    scaledHeight: number
+  ): { x: number; y: number } => {
+    const maxPanX = Math.max(
+      0,
+      (scaledWidth - containerWidth) / (2 * scaledWidth)
+    );
+    const maxPanY = Math.max(
+      0,
+      (scaledHeight - containerHeight) / (2 * scaledHeight)
+    );
+    return {
+      x: -pan.x + maxPanX,
+      y: -pan.y + maxPanY,
     };
   };
 
@@ -274,6 +292,21 @@ export default function CreatePostCarousel({
         const processedMedia: ProcessedMedia[] = [];
         for (let i = 0; i < postFormData.media.length; i++) {
           if (postFormData.media[i].media_type === "video") {
+            const width =
+              postFormData.media[i].resource.width *
+              (carouselSize.height / postFormData.media[i].resource.height);
+            const zoomFactor = postFormData.media[i].zoom / 100 + 1;
+            const scaledWidth = width * zoomFactor;
+            const scaledHeight = carouselSize.height * zoomFactor;
+
+            const normalizedPan = normalizePan(
+              postFormData.media[i].pan,
+              carouselSize.width,
+              carouselSize.height,
+              scaledWidth,
+              scaledHeight
+            );
+
             processedMedia.push({
               media_type: "video",
               file: (postFormData.media[i] as VideoMediaDraft).file,
@@ -283,10 +316,12 @@ export default function CreatePostCarousel({
                 .start_percent,
               end_percent: (postFormData.media[i] as VideoMediaDraft)
                 .end_percent,
-              pan: postFormData.media[i].pan,
+              pan: normalizedPan,
               zoom: postFormData.media[i].zoom,
               duration: (postFormData.media[i] as VideoMediaDraft).resource
                 .duration,
+              width: postFormData.media[i].resource.width,
+              height: postFormData.media[i].resource.height,
             });
           } else {
             ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -308,6 +343,8 @@ export default function CreatePostCarousel({
       }));
     }
 
+    if (postFormData.media[interactionState.position].media_type === "video")
+      return;
     initializeCanvas(
       canvas,
       ctx,
@@ -340,13 +377,13 @@ export default function CreatePostCarousel({
     )
       return;
     const exportAllPosters = async () => {
-      const containerWidth = 88;
-      const containerHeight = 88;
+      const canvasWidth = 88;
+      const canvasHeight = 88;
       initializeCanvas(
         canvas,
         ctx,
-        containerWidth,
-        containerHeight,
+        canvasWidth,
+        canvasHeight,
         window.devicePixelRatio
       );
       const posters: (string | null)[] = [];
@@ -357,9 +394,9 @@ export default function CreatePostCarousel({
             m.resource.requestVideoFrameCallback(resolve)
           );
         }
-        ctx.clearRect(0, 0, containerWidth, containerHeight);
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         const { sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight } =
-          buildCanvasParams(i, containerWidth, containerHeight);
+          buildCanvasParams(i, canvasWidth, canvasHeight);
         ctx.drawImage(
           m.resource,
           sx,

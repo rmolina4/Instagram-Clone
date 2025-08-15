@@ -255,7 +255,9 @@ export default function CreatePostModal({
       entity_id: crypto.randomUUID(),
       comment_count: 0,
     };
-    setPosts((prev) => [optimisticPost, ...prev]);
+    if (!postFormData.media.some((m) => m.media_type === "video")) {
+      setPosts((prev) => [optimisticPost, ...prev]);
+    }
 
     const formData = new FormData();
     formData.append("body", postFormData.body);
@@ -276,6 +278,8 @@ export default function CreatePostModal({
             pan: m.pan,
             zoom: m.zoom,
             duration: m.duration,
+            width: m.width,
+            height: m.height,
           }
         : null;
     });
@@ -289,14 +293,18 @@ export default function CreatePostModal({
       }
     );
     if (!data.success)
-      setPosts((prev) => prev.filter((post) => post.id !== optimisticPost.id));
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === optimisticPost.id
-          ? { ...post, id: data.id, entity_id: data.entity_id }
-          : post
-      )
-    );
+      return setPosts((prev) =>
+        prev.filter((post) => post.id !== optimisticPost.id)
+      );
+    if (!postFormData.media.some((m) => m.media_type === "video")) {
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === optimisticPost.id
+            ? { ...post, id: data.id, entity_id: data.entity_id }
+            : post
+        )
+      );
+    }
   };
 
   const handleIncrementStage = async () => {

@@ -110,6 +110,8 @@ export interface ProcessedVideoMedia extends BaseProcessedMedia {
   end_percent: number;
   pan: { x: number; y: number };
   zoom: number;
+  width: number;
+  height: number;
 }
 
 export type ProcessedMedia = ProcessedVideoMedia | ProcessedImageMedia;
