@@ -275,11 +275,10 @@ export default function CreatePostModal({
         ? {
             start_percent: m.start_percent,
             end_percent: m.end_percent,
-            pan: m.pan,
-            zoom: m.zoom,
             duration: m.duration,
-            width: m.width,
-            height: m.height,
+            crop: m.crop,
+            offset: m.offset,
+            dimensions: m.dimensions,
           }
         : null;
     });
@@ -304,6 +303,16 @@ export default function CreatePostModal({
             : post
         )
       );
+    } else {
+      setPosts((prev) => [
+        {
+          ...optimisticPost,
+          id: data.id,
+          entity_id: data.entity_id,
+          media: data.media,
+        },
+        ...prev,
+      ]);
     }
   };
 

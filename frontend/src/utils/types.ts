@@ -108,10 +108,9 @@ export interface ProcessedVideoMedia extends BaseProcessedMedia {
   media_type: "video";
   start_percent: number;
   end_percent: number;
-  pan: { x: number; y: number };
-  zoom: number;
-  width: number;
-  height: number;
+  crop: { width: number; height: number };
+  dimensions: { width: number; height: number };
+  offset: { x: number; y: number };
 }
 
 export type ProcessedMedia = ProcessedVideoMedia | ProcessedImageMedia;
@@ -170,6 +169,7 @@ export interface GetNextPostsResponse extends APIResponse {
 export interface CreateResourceResponse extends APIResponse {
   id: string;
   entity_id: string;
+  media: Media[];
 }
 
 export interface GetNextCommentsResponse extends APIResponse {

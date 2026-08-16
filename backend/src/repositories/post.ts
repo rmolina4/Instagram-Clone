@@ -133,6 +133,19 @@ export const getNextPosts = async (account_id: string, cursor?: string) => {
     .execute();
 };
 
+export const getPostFromEntity = async (entity_id: string) => {
+  return await db
+    .selectFrom("post")
+    .leftJoin("post_media", "post_media.post_id", "post.id")
+    .select((eb) => [
+      "post.id",
+      eb.fn.agg("array_agg", ["post_media.media_url"]).as("media_urls"),
+    ])
+    .groupBy("post.id")
+    .where("entity_id", "=", entity_id)
+    .executeTakeFirst();
+};
+
 export const createEntity = async (trx: Transaction<DB>) => {
   return await trx
     .insertInto("entity")

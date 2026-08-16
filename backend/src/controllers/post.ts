@@ -4,6 +4,7 @@ import appError from "../utils/appError.js";
 import * as postRepository from "../repositories/post.js";
 import * as mediaHandler from "../utils/mediaHandler.js";
 import db from "../db/db.js";
+import { supabase } from "../db/db.js";
 
 export const getPost = asyncWrapper(async (req: Request, res: Response) => {
   const { post_id } = req.params;
@@ -47,6 +48,7 @@ export const createPost = asyncWrapper(async (req: Request, res: Response) => {
       success: true,
       id: post.id,
       entity_id: entity.id,
+      media,
     });
   });
 });
@@ -167,6 +169,15 @@ export const getNextComments = asyncWrapper(
 export const deleteEntity = asyncWrapper(
   async (req: Request, res: Response) => {
     const { entity_id } = req.params;
+
+    const post = await postRepository.getPostFromEntity(entity_id);
+    if (post) {
+      for (const media_url of post.media_urls as string[]) {
+        await supabase.storage
+          .from(process.env.SUPABASE_BUCKET_NAME!)
+          .remove([`posts/${post.id}/${media_url.split("/").pop()}`]);
+      }
+    }
 
     await postRepository.deleteEntity(entity_id);
 

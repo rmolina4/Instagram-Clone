@@ -12,13 +12,9 @@ export const createPost = async (
     duration: number;
     start_percent: number;
     end_percent: number;
-    pan: {
-      x: number;
-      y: number;
-    };
-    zoom: number;
-    width: number;
-    height: number;
+    crop: { width: number; height: number };
+    offset: { x: number; y: number };
+    dimensions: { width: number; height: number };
   } | null)[]
 ) => {
   const media_urls: { media_url: string; mime_type: string }[] = [];
@@ -40,13 +36,6 @@ export const createPost = async (
         metadata[index].start_percent * metadata[index].duration;
       const end_time = metadata[index].end_percent * metadata[index].duration;
       const duration = end_time - start_time;
-      const zoomFactor = 1 + metadata[index].zoom / 100;
-
-      const scaleX =
-        metadata[index].width * (1080 / metadata[index].height) * zoomFactor;
-      const scaleY = 1080 * zoomFactor;
-      const offsetX = metadata[index].pan.x * scaleX;
-      const offsetY = metadata[index].pan.y * scaleY;
 
       await runffmpeg([
         "-ss",
@@ -56,7 +45,7 @@ export const createPost = async (
         "-t",
         duration.toString(),
         "-vf",
-        `scale=${scaleX}:${scaleY},crop=1080:1080:${offsetX}:${offsetY}`,
+        `scale=${metadata[index].dimensions.width}:${metadata[index].dimensions.height},crop=${metadata[index].crop.width}:${metadata[index].crop.height}:${metadata[index].offset.x}:${metadata[index].offset.y}`,
         outputPath,
       ]);
       uploadBody = await fs.promises.readFile(outputPath);

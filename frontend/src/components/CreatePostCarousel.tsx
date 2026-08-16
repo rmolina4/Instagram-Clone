@@ -141,12 +141,11 @@ export default function CreatePostCarousel({
     canvasWidth: number,
     canvasHeight: number
   ) => {
-    const width =
-      postFormData.media[index].resource.width *
-      (canvasHeight / postFormData.media[index].resource.height);
-    const zoomFactor = postFormData.media[index].zoom / 100 + 1;
-    const scaledWidth = width * zoomFactor;
+    const zoomFactor = 1 + postFormData.media[index].zoom / 100;
     const scaledHeight = canvasHeight * zoomFactor;
+    const scaledWidth =
+      (postFormData.media[index].resource.width * scaledHeight) /
+      postFormData.media[index].resource.height;
 
     const normalizedPan = normalizePan(
       postFormData.media[index].pan,
@@ -244,14 +243,13 @@ export default function CreatePostCarousel({
     if (carouselSize.width === 0 || carouselSize.height === 0 || animating)
       return;
 
-    const width =
-      postFormData.media[interactionState.position].resource.width *
-      (carouselSize.height /
-        postFormData.media[interactionState.position].resource.height);
     const zoomFactor =
       postFormData.media[interactionState.position].zoom / 100 + 1;
-    const scaledWidth = width * zoomFactor;
     const scaledHeight = carouselSize.height * zoomFactor;
+    const scaledWidth =
+      (postFormData.media[interactionState.position].resource.width *
+        scaledHeight) /
+      postFormData.media[interactionState.position].resource.height;
 
     x.set(postFormData.media[interactionState.position].pan.x * scaledWidth);
     y.set(postFormData.media[interactionState.position].pan.y * scaledHeight);
@@ -292,17 +290,16 @@ export default function CreatePostCarousel({
         const processedMedia: ProcessedMedia[] = [];
         for (let i = 0; i < postFormData.media.length; i++) {
           if (postFormData.media[i].media_type === "video") {
-            const width =
-              postFormData.media[i].resource.width *
-              (carouselSize.height / postFormData.media[i].resource.height);
-            const zoomFactor = postFormData.media[i].zoom / 100 + 1;
-            const scaledWidth = width * zoomFactor;
-            const scaledHeight = carouselSize.height * zoomFactor;
+            const zoomFactor = 1 + postFormData.media[i].zoom / 100;
+            const scaledHeight = canvasHeight * zoomFactor;
+            const scaledWidth =
+              (postFormData.media[i].resource.width * scaledHeight) /
+              postFormData.media[i].resource.height;
 
             const normalizedPan = normalizePan(
               postFormData.media[i].pan,
-              carouselSize.width,
-              carouselSize.height,
+              canvasWidth,
+              canvasHeight,
               scaledWidth,
               scaledHeight
             );
@@ -316,12 +313,20 @@ export default function CreatePostCarousel({
                 .start_percent,
               end_percent: (postFormData.media[i] as VideoMediaDraft)
                 .end_percent,
-              pan: normalizedPan,
-              zoom: postFormData.media[i].zoom,
               duration: (postFormData.media[i] as VideoMediaDraft).resource
                 .duration,
-              width: postFormData.media[i].resource.width,
-              height: postFormData.media[i].resource.height,
+              crop: {
+                width: canvasWidth,
+                height: canvasHeight,
+              },
+              dimensions: {
+                width: scaledWidth,
+                height: scaledHeight,
+              },
+              offset: {
+                x: normalizedPan.x * scaledWidth,
+                y: normalizedPan.y * scaledHeight,
+              },
             });
           } else {
             ctx.clearRect(0, 0, canvasWidth, canvasHeight);
